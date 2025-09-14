@@ -7,6 +7,7 @@ use steel::SteelVal;
 use steel::steel_vm::engine::Engine;
 use steel::steel_vm::register_fn::RegisterFn;
 use steel_derive::Steel;
+use std::hash::Hash;
 
 mod derivation;
 
@@ -41,7 +42,10 @@ impl DAG {
         match derivation::Derivation::new(attributes) {
             Ok(v) => {
                 let hash = v.hash.clone();
-                self.nodes.insert(hash.clone(), v);
+                match self.nodes.safe_insert(hash.clone(), v){
+                    Ok(_) => {self.dag.add_node(hash.clone()); ()},
+                    Err(_) => return Ok(hash)
+                }
                 self.dag.add_node(hash.clone());
 
                 // TODO add duplicate checking
@@ -57,5 +61,21 @@ impl DAG {
 
     pub fn outputs(&self) {
         todo!()
+    }
+}
+
+
+trait SafeInsert<K,V> {
+    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()>;
+}
+
+impl<K: Eq+Hash,V> SafeInsert<K,V> for HashMap<K,V>{
+    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()>{
+        match self.get(&key){
+            Some(_) => Err(()),
+            None => {
+                self.insert(key, value);
+                Ok(())}
+        }
     }
 }
