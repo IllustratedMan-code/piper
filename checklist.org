@@ -1,0 +1,23 @@
+* TODO Minimum Viable Product [0/3]
+- [-] DAG implementation
+  - [X] Processes can be added to the DAG
+  - [ ] Duplicate processes should be considered
+    identical (process is only added to DAG once)
+- [ ] Processes should run
+  - [ ] Bash Runner
+  - [ ] Parallel Execution
+- [ ] Job scheduling
+  - [ ] LSF support
+
+
+* Version 1.0.0
+- [ ] Job Scheduling
+  - [ ] LSF
+  - [ ] SLURM
+  - [ ] Other backends? (check nextflow docs for supported platforms)
+- [ ] Good error handling
+- [ ] Cache invalidation
+- [ ] Sample pipelines
+- [ ] CLI
+- [ ] Configuration
+- [ ] Documentation Website
