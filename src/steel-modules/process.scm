@@ -1,10 +1,16 @@
 
-(provide process)
+(provide process count-nodes display-nodes)
 
-(define (plus x y)
-  (+ x y)
-)
+(require-builtin process/dag as dag.)
 
-(define (process x y)
-  (plus x y)
-)
+(define (process map)
+  (dag.process dag.dag map))
+
+(define (count-nodes)
+  (dag.node_count dag.dag))
+
+(define (display-nodes)
+  (dag.display_nodes dag.dag))
+
+
+
