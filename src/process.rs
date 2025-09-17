@@ -4,14 +4,16 @@
 use daggy::Dag;
 use steel::rvals::IntoSteelVal;
 use std::collections::HashMap;
-use std::hash::Hash;
 use steel::SteelVal;
 use steel::steel_vm::engine::Engine;
 use steel::steel_vm::builtin::BuiltInModule;
 use steel::steel_vm::register_fn::RegisterFn;
 use steel_derive::Steel;
 
+use crate::process::derivation::InterpolateDerivationScript;
+
 mod derivation;
+use derivation::Derivation;
 
 /// Directed Acyclic Graph containing the derivation nodes
 #[derive(Clone, Steel)]
@@ -36,6 +38,7 @@ impl DAG {
         module.register_type::<DAG>("DAG?");
         module.register_value("dag", dag.clone().into_steelval().unwrap());
 
+
         module.register_fn("process", DAG::process);
         module.register_fn("node_count", DAG::node_count);
         module.register_fn("display_nodes", DAG::display_nodes);
@@ -46,23 +49,23 @@ impl DAG {
                 include_str!("steel-modules/process.scm").to_string(),
             );
         dag.vm.run(r#"(require "process")"#).unwrap();
+
+
+        dag.vm.register_type::<Derivation>("Derivation?");
+        dag.vm.register_fn("process.attr", Derivation::attr);
+        dag.vm.register_fn("process.script", Derivation::script);
+        dag.vm.register_fn("process.hash", Derivation::hash);
+        
+
         return dag;
     }
 
-    pub fn process(&mut self, attributes: HashMap<SteelVal, SteelVal>) -> Result<String, String> {
+    pub fn process(&mut self, attributes: HashMap<SteelVal, SteelVal>) -> Result<Derivation, String> {
         match derivation::Derivation::new(attributes) {
             Ok(v) => {
-                let hash = v.hash.clone();
-                match self.nodes.safe_insert(hash.clone(), v) {
-                    Ok(_) => {
-                        self.dag.add_node(hash.clone());
-                        ()
-                    }
-                    Err(_) => return Ok(hash),
-                }
+                Ok(self.interpolate(v).unwrap())
 
                 // TODO add duplicate checking
-                Ok(hash)
             }
             Err(v) => Err(v),
         }
@@ -81,18 +84,3 @@ impl DAG {
     }
 }
 
-trait SafeInsert<K, V> {
-    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()>;
-}
-
-impl<K: Eq + Hash, V> SafeInsert<K, V> for HashMap<K, V> {
-    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()> {
-        match self.get(&key) {
-            Some(_) => Err(()),
-            None => {
-                self.insert(key, value);
-                Ok(())
-            }
-        }
-    }
-}

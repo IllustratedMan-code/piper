@@ -3,8 +3,7 @@ mod vm;
 use vm::engine;
 
 fn main() {
-    let engine = engine();
-
+    let mut engine = engine();
+    engine.run(include_str!("steel-modules/main.scm")).unwrap();
     steel_repl::run_repl(engine).unwrap();
-
 }

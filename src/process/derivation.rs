@@ -1,16 +1,15 @@
-use daggy::petgraph::adj::OutgoingEdgeReferences;
-use regex::Regex;
-use std::collections::VecDeque;
-use std::iter::Peekable;
-use std::vec::Vec;
 use std::{collections::HashMap, hash::DefaultHasher, hash::Hash, hash::Hasher};
-use steel::SteelVal;
+use steel::{rvals::{FromSteelVal}, SteelVal};
 use steel_derive::Steel;
+mod scriptstring;
+use scriptstring::{ScriptString};
 
 #[derive(Clone, Steel)]
 pub struct Derivation {
     attributes: HashMap<SteelVal, SteelVal>,
-    pub hash: String,
+    pub script: ScriptString,
+    pub name: String,
+    pub hash: Option<String>,
 }
 
 fn calculate_hash(name: String, script: String) -> String {
@@ -32,14 +31,25 @@ impl Derivation {
             None => return Err("Script attribute does not exist!".to_string()),
         };
 
-        let hash = calculate_hash(name.to_string(), script.to_string());
 
         let d = Derivation {
-            attributes: attributes,
-            hash: hash,
+            attributes: attributes.clone(),
+            hash: None,
+            script: ScriptString::new(String::from_steelval(script).unwrap()), // TODO error handling
+            name: String::from_steelval(name).unwrap(), // need to handle this error
         };
 
         Ok(d)
+    }
+    pub fn attr(&self, key: SteelVal) -> Option<SteelVal>{
+        self.attributes.get(&key).cloned()
+    }
+    pub fn script(&self) -> String{
+        self.script.to_string()
+    }
+
+    pub fn hash(&self) -> String{
+        self.hash.clone().unwrap()
     }
 }
 
@@ -55,69 +65,46 @@ impl std::fmt::Debug for Derivation {
     }
 }
 
-#[derive(Clone)]
-pub struct ScriptString {
-    string_fragments: VecDeque<String>,
-    execution_queue: Vec<String>,
+pub trait InterpolateDerivationScript {
+    fn interpolate(&mut self, derivation: Derivation) -> Result<Derivation, String>;
 }
 
-impl ScriptString {
-    pub fn new(script: String) -> ScriptString {
-        let interpolation_regex = Regex::new(r"${(.*)}").unwrap();
-        let matches: Vec<String> = interpolation_regex
-            .captures_iter(script.as_str())
-            .map(|captures| captures[1].to_string())
+impl InterpolateDerivationScript for super::DAG {
+    fn interpolate(&mut self, derivation: Derivation) -> Result<Derivation, String> {
+        let mut derivation = derivation.clone();
+
+        derivation.script.interpolations = derivation
+            .script
+            .interpolations
+            .iter()
+            .map(|x| self.vm.run(x.clone()).unwrap()[0].to_string())
             .collect();
 
-        let split: Vec<String> = interpolation_regex
-            .split(script.as_str())
-            .map(|s| s.to_string())
-            .collect();
-
-        ScriptString {
-            string_fragments: VecDeque::from(split),
-            execution_queue: matches,
+        let hash = calculate_hash(derivation.name.clone(), derivation.script.to_string());
+        println!("{:?}", derivation.script.to_string());
+        derivation.hash = Some(hash.clone());
+        match self.nodes.safe_insert(hash.clone(), derivation.clone()) {
+            Ok(_) => {
+                self.dag.add_node(hash.clone());
+                Ok(derivation)
+            }
+            Err(_) => return Ok(derivation),
         }
     }
 }
 
-pub fn indent_string(s: String) -> Result<String, String> {
-    let mut strings = s.split("\n").peekable();
-    strings.next(); // consumes first element of iterator (will be needed to add script annotations like 'bash')
-    let whitespace_regex = Regex::new(r"^(\s*)").unwrap();
-    let first_elem = match strings.peek() {
-        Some(v) => v,
-        None => return Err("String is empty!!".to_string()),
-    };
-    let indents = match whitespace_regex.captures(first_elem) {
-        Some(v) => v.get(1).unwrap().as_str(),
-        None => "",
-    };
-
-    let s: String = strings.map(|i| match i.strip_prefix(indents) {
-        Some(v) => v,
-        None => i,
-    }).map(|i| i.to_string()).collect::<std::vec::Vec<String>>().join("\n");
-
-    return Ok(s)
-
+trait SafeInsert<K, V> {
+    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()>;
 }
 
-pub trait InterpolateScript {
-    fn interpolate(&self, script: ScriptString) -> Result<String, String>;
-}
-
-impl InterpolateScript for steel::steel_vm::engine::Engine {
-    fn interpolate(&self, script: ScriptString) -> Result<String, String> {
-        let mut script_fragments = VecDeque::from(script.string_fragments);
-        let mut s = match script_fragments.pop_front() {
-            Some(v) => v,
-            None => return Err("Script is empty!!".to_string()),
-        };
-        for (i, frag) in std::iter::zip(script.execution_queue.iter(), script_fragments.iter()) {
-            s = s + i + frag;
+impl<K: Eq + Hash, V> SafeInsert<K, V> for HashMap<K, V> {
+    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()> {
+        match self.get(&key) {
+            Some(_) => Err(()),
+            None => {
+                self.insert(key, value);
+                Ok(())
+            }
         }
-        s = indent_string(s).unwrap();
-        Ok(s)
     }
 }

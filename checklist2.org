@@ -1,3 +1,4 @@
+
 * TODO Minimum Viable Product [0/4]
 - [-] DAG implementation
   - [X] Processes can be added to the DAG
@@ -11,11 +12,10 @@
 - [ ] Error Handling
   - The user should not be able to make the rust runtime panic
   - Need to handle all unwraps in user facing functions
-
     
-   
+    
 
-* Version 1.0.0 [0/7]
+* Version 1.0.0
 - [ ] Job Scheduling
   - [ ] LSF
   - [ ] SLURM
@@ -29,12 +29,12 @@
 
 
 
-* Design desisions [0/1]
+* Design desisions
 - [ ] Fixed set of attributes? Or dynamic.
 
 
 
-* Unit Tests [0/1]
+* Unit Tests
 - [ ] Unit tests for all user facing functions
   - Anything registered in the vm should have a unit test
   - Unit tests should be located in =steel-modules/test/=
