@@ -39,10 +39,21 @@ impl DAG {
         module.register_value("dag", dag.clone().into_steelval().unwrap());
 
 
-        module.register_fn("process", DAG::process);
+        //module.register_fn("process", DAG::process);
         module.register_fn("node_count", DAG::node_count);
         module.register_fn("display_nodes", DAG::display_nodes);
+
+
+        module.register_type::<Derivation>("Derivation?");
+        module.register_fn("process", Derivation::new);
+        module.register_fn("process.attr", Derivation::attr);
+        module.register_fn("process.script", Derivation::script);
+        module.register_fn("process.hash", Derivation::hash);
+        module.register_fn("process.interpolations", Derivation::interpolations);
+        module.register_fn("process.set-interpolations", Derivation::set_interpolations);
         dag.vm.register_module(module);
+
+
         dag.vm
             .register_steel_module(
                 "process".to_string(),
@@ -51,24 +62,14 @@ impl DAG {
         dag.vm.run(r#"(require "process")"#).unwrap();
 
 
-        dag.vm.register_type::<Derivation>("Derivation?");
-        dag.vm.register_fn("process.attr", Derivation::attr);
-        dag.vm.register_fn("process.script", Derivation::script);
-        dag.vm.register_fn("process.hash", Derivation::hash);
         
 
         return dag;
     }
 
-    pub fn process(&mut self, attributes: HashMap<SteelVal, SteelVal>) -> Result<Derivation, String> {
-        match derivation::Derivation::new(attributes) {
-            Ok(v) => {
-                Ok(self.interpolate(v).unwrap())
-
-                // TODO add duplicate checking
-            }
-            Err(v) => Err(v),
-        }
+    pub fn add_process(&mut self, derivation: Derivation) -> Result<Derivation, String> {
+        todo!("need to fix this")
+        
     }
 
     pub fn node_count(&self) {
@@ -83,4 +84,5 @@ impl DAG {
         todo!()
     }
 }
+
 

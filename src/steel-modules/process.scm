@@ -4,7 +4,7 @@
 (require-builtin process/dag as dag.)
 
 (define (process map)
-  (dag.process dag.dag map))
+  (dag.process map))
 
 (define (count-nodes)
   (dag.node_count dag.dag))

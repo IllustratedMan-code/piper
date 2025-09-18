@@ -1,5 +1,5 @@
 use std::{collections::HashMap, hash::DefaultHasher, hash::Hash, hash::Hasher};
-use steel::{rvals::{FromSteelVal}, SteelVal};
+use steel::{rvals::{FromSteelVal, IntoSteelVal}, SteelVal};
 use steel_derive::Steel;
 mod scriptstring;
 use scriptstring::{ScriptString};
@@ -51,6 +51,14 @@ impl Derivation {
     pub fn hash(&self) -> String{
         self.hash.clone().unwrap()
     }
+
+    pub fn interpolations(&self) -> Vec<String> {
+        self.script.interpolations.clone()
+    }
+
+    pub fn set_interpolations(&mut self, interpolations: Vec<String>) {
+        self.script.interpolations = interpolations
+    }
 }
 
 impl std::fmt::Display for Derivation {
@@ -77,7 +85,10 @@ impl InterpolateDerivationScript for super::DAG {
             .script
             .interpolations
             .iter()
-            .map(|x| self.vm.run(x.clone()).unwrap()[0].to_string())
+            .map(|x| match self.vm.run(x.clone()){
+                Ok(v) => v,
+                Err(e) => vec![format!("{:?}", e).into_steelval().unwrap()]
+            }[0].to_string())
             .collect();
 
         let hash = calculate_hash(derivation.name.clone(), derivation.script.to_string());
