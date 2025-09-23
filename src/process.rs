@@ -10,10 +10,10 @@ use steel::steel_vm::builtin::BuiltInModule;
 use steel::steel_vm::register_fn::RegisterFn;
 use steel_derive::Steel;
 
-use crate::process::derivation::InterpolateDerivationScript;
 
 mod derivation;
 use derivation::Derivation;
+use derivation::SafeInsert;
 
 /// Directed Acyclic Graph containing the derivation nodes
 #[derive(Clone, Steel)]
@@ -51,6 +51,8 @@ impl DAG {
         module.register_fn("process.hash", Derivation::hash);
         module.register_fn("process.interpolations", Derivation::interpolations);
         module.register_fn("process.set-interpolations", Derivation::set_interpolations);
+        module.register_fn("process.inward-hashes", Derivation::inward_hashes);
+        module.register_fn("add-process", DAG::add_process);
         dag.vm.register_module(module);
 
 
@@ -67,9 +69,15 @@ impl DAG {
         return dag;
     }
 
-    pub fn add_process(&mut self, derivation: Derivation) -> Result<Derivation, String> {
-        todo!("need to fix this")
-        
+    pub fn add_process(&mut self, mut derivation: Derivation) -> Result<Derivation, String> {
+        derivation.write_hash();
+        match self.nodes.safe_insert(derivation.clone().hash.unwrap(), derivation.clone()) {
+            Ok(_) => {
+                self.dag.add_node(derivation.clone().hash.unwrap());
+                Ok(derivation)},
+            Err(_) => Ok(derivation)
+            
+        }
     }
 
     pub fn node_count(&self) {

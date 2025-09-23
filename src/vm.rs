@@ -6,3 +6,24 @@ pub fn engine() -> Engine {
     let dag = DAG::new(vm);
     return dag.vm;
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_interpolations() {
+        let mut e = engine();
+        e.run(include_str!("steel-modules/tests/basic_interpolations.scm")).unwrap();
+    }
+
+    #[test]
+    fn node_interpolation() {
+        let mut e = engine();
+        e.run(include_str!("steel-modules/tests/node_interpolation.scm")).unwrap();
+
+    }
+
+
+}
