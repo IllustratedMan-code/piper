@@ -18,11 +18,11 @@ Each derivation, when built, is stored in a directory inside of a "work" directo
 
 
 
-(define (MyProcess a)
+(define (MyProcess t)
 	(process
 		(container "user/repo:tag")
 		(memory "1Gb")
-		(time a)
+		(time t)
 		(script ''bash
 			cp ${mypath}/mypath.txt ${out}/mypath.txt
 			echo "chairs" > ${out}/chairs.txt

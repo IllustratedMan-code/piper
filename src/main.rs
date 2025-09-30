@@ -1,7 +1,8 @@
+#![warn(clippy::unwrap_used)]
+
 mod process;
 mod vm;
 use vm::engine;
-
 fn main() {
     let mut engine = engine();
     engine.run(include_str!("steel-modules/main.scm")).unwrap();
