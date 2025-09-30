@@ -1,9 +1,9 @@
 use std::{collections::HashMap, hash::DefaultHasher, hash::Hash, hash::Hasher};
+use daggy::NodeIndex;
 use steel::{
     SteelVal,
-    rvals::{Custom, FromSteelVal, IntoSteelVal},
+    rvals::{Custom, FromSteelVal},
 };
-use steel_derive::Steel;
 mod scriptstring;
 use scriptstring::ScriptString;
 
@@ -14,6 +14,7 @@ pub struct Derivation {
     pub name: String,
     pub hash: Option<String>,
     pub inward_edges: Option<Vec<String>>,
+    pub node_index: Option<NodeIndex>
 }
 
 fn calculate_hash(name: String, script: String) -> String {
@@ -41,6 +42,7 @@ impl Derivation {
             script: ScriptString::new(String::from_steelval(script).unwrap()), // TODO error handling
             name: String::from_steelval(name).unwrap(), // need to handle this error
             inward_edges: None,
+            node_index: None
         };
 
         Ok(d)
@@ -95,38 +97,6 @@ impl std::fmt::Debug for Derivation {
     }
 }
 
-pub trait InterpolateDerivationScript {
-    fn interpolate(&mut self, derivation: Derivation) -> Result<Derivation, String>;
-}
-
-impl InterpolateDerivationScript for super::DAG {
-    fn interpolate(&mut self, derivation: Derivation) -> Result<Derivation, String> {
-        let mut derivation = derivation.clone();
-
-        derivation.script.interpolations = derivation
-            .script
-            .interpolations
-            .iter()
-            .map(|x| {
-                (match self.vm.run(x.clone()) {
-                    Ok(v) => v,
-                    Err(e) => vec![format!("{:?}", e).into_steelval().unwrap()],
-                })[0]
-                    .to_string()
-            })
-            .collect();
-
-        let hash = calculate_hash(derivation.name.clone(), derivation.script.to_string());
-        derivation.hash = Some(hash.clone());
-        match self.nodes.safe_insert(hash.clone(), derivation.clone()) {
-            Ok(_) => {
-                self.dag.add_node(hash.clone());
-                Ok(derivation)
-            }
-            Err(_) => return Ok(derivation),
-        }
-    }
-}
 
 pub trait SafeInsert<K, V> {
     fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()>;
@@ -173,7 +143,7 @@ fn extract_derivation_hashes_recursive(val: SteelVal, vec: &mut Vec<String>) {
     }
 
     if let Ok(hashmap) = HashMap::<SteelVal, SteelVal>::from_steelval(&val) {
-        for (k, v) in hashmap {
+        for (_, v) in hashmap {
             extract_derivation_hashes_recursive(v, vec)
         }
 

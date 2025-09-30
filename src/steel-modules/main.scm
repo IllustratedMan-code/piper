@@ -12,6 +12,6 @@
 (define proc2 (process
  (hash 'name "cool-process"
        'script "
-        echo ${proc1} ${(+ 1 2 3)} ")))
+        echo ${proc1} ${(+ 1 2 3)} ${proc1} ")))
 
 

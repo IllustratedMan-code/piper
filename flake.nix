@@ -44,6 +44,7 @@
               rustc
               cargo
               rustfmt
+              clippy
             ];
           };
         };
