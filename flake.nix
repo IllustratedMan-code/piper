@@ -45,6 +45,7 @@
               cargo
               rustfmt
               clippy
+              cargo-modules
             ];
           };
         };

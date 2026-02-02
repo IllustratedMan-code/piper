@@ -1,11 +1,16 @@
-use std::{collections::HashMap, hash::DefaultHasher, hash::Hash, hash::Hasher};
-use daggy::NodeIndex;
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::{ContentArrangement, Table};
+use std::{
+    collections::HashMap, hash::DefaultHasher, hash::Hash, hash::Hasher,
+};
 use steel::{
     SteelVal,
     rvals::{Custom, FromSteelVal},
 };
 mod scriptstring;
 use scriptstring::ScriptString;
+mod evaluator;
 
 #[derive(Clone)]
 pub struct Derivation {
@@ -14,7 +19,6 @@ pub struct Derivation {
     pub name: String,
     pub hash: Option<String>,
     pub inward_edges: Option<Vec<String>>,
-    pub node_index: Option<NodeIndex>
 }
 
 fn calculate_hash(name: String, script: String) -> String {
@@ -22,11 +26,13 @@ fn calculate_hash(name: String, script: String) -> String {
     let combined = format!("{}{}", name, script);
     combined.hash(&mut s);
     let hash = s.finish().to_string();
-    return format!("{}-{}", hash, name);
+    format!("{}-{}", hash, name)
 }
 
 impl Derivation {
-    pub fn new(attributes: HashMap<SteelVal, SteelVal>) -> Result<Derivation, String> {
+    pub fn new(
+        attributes: HashMap<SteelVal, SteelVal>,
+    ) -> Result<Derivation, String> {
         let name = match attributes.get(&SteelVal::SymbolV("name".into())) {
             Some(v) => v,
             None => return Err("Name attribute does not exist".to_string()),
@@ -39,10 +45,13 @@ impl Derivation {
         let d = Derivation {
             attributes: attributes.clone(),
             hash: None,
-            script: ScriptString::new(String::from_steelval(script).unwrap()), // TODO error handling
-            name: String::from_steelval(name).unwrap(), // need to handle this error
+            script: ScriptString::new(
+                String::from_steelval(script)
+                    .expect("Couldn't interpret script as a string"),
+            ),
+            name: String::from_steelval(name)
+                .expect("Couldn't interpret name as a string"), // need to handle this error
             inward_edges: None,
-            node_index: None
         };
 
         Ok(d)
@@ -55,7 +64,7 @@ impl Derivation {
     }
 
     pub fn hash(&self) -> String {
-        self.hash.clone().unwrap()
+        self.hash.clone().expect("Hash doesn't exist yet")
     }
 
     pub fn interpolations(&self) -> Vec<String> {
@@ -73,8 +82,7 @@ impl Derivation {
         self.inward_edges = Some(
             interpolations
                 .iter()
-                .map(|i| extract_derivation_hashes(i.clone()))
-                .flatten()
+                .flat_map(|i| extract_derivation_hashes(i.clone()))
                 .collect(),
         )
     }
@@ -83,11 +91,37 @@ impl Derivation {
         let hash = calculate_hash(self.name.clone(), self.script.to_string());
         self.hash = Some(hash);
     }
+
+    pub fn display(&self) -> Table {
+        let mut table = Table::new();
+        let hash = self.hash.clone().unwrap_or("None".to_string());
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            //.set_width(40)
+            .add_row(vec!["hash".to_string(), hash])
+            .add_row(vec!["name".to_string(), self.name.clone()])
+            .add_row(vec![
+                "script".to_string(),
+                self.script.to_string(),
+            ]);
+
+        table
+    }
+}
+
+
+
+impl Custom for Derivation{
+    fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
+        Some(Ok(format!("\n{}", self.display())))
+    }
 }
 
 impl std::fmt::Display for Derivation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.attributes)
+        write!(f, "{}", self.display())
     }
 }
 
@@ -98,31 +132,6 @@ impl std::fmt::Debug for Derivation {
 }
 
 
-pub trait SafeInsert<K, V> {
-    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()>;
-}
-
-impl<K: Eq + Hash, V> SafeInsert<K, V> for HashMap<K, V> {
-    fn safe_insert(&mut self, key: K, value: V) -> Result<(), ()> {
-        match self.get(&key) {
-            Some(_) => Err(()),
-            None => {
-                self.insert(key, value);
-                Ok(())
-            }
-        }
-    }
-}
-
-impl Custom for Derivation {
-    fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
-        Some(Ok(match self.hash.clone() {
-            Some(v) => format!("{:?}", v),
-            None => "The hash has not been generated yet!!".to_string(),
-        }))
-    }
-}
-
 fn extract_derivation_hashes(val: SteelVal) -> Vec<String> {
     let mut vec = Vec::<String>::new();
     extract_derivation_hashes_recursive(val, &mut vec);
@@ -131,7 +140,7 @@ fn extract_derivation_hashes(val: SteelVal) -> Vec<String> {
 
 fn extract_derivation_hashes_recursive(val: SteelVal, vec: &mut Vec<String>) {
     if let Ok(derivation) = Derivation::from_steelval(&val) {
-        vec.push(derivation.hash.unwrap());
+        vec.push(derivation.hash.expect("Hash doesn't exist"));
         return;
     }
 
@@ -147,6 +156,5 @@ fn extract_derivation_hashes_recursive(val: SteelVal, vec: &mut Vec<String>) {
             extract_derivation_hashes_recursive(v, vec)
         }
 
-        return;
     }
 }
