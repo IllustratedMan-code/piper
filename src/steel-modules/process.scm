@@ -2,7 +2,8 @@
 (provide process
 	 count-nodes
 	 display-nodes
-	 dot-viz)
+	 dag.config
+	 )
 
 (require-builtin process/dag as dag.)
 
@@ -17,7 +18,5 @@
 (define (display-nodes)
   (dag.display_nodes dag.dag))
 
-(define (dot-viz)
-  (dag.dot-viz dag.dag))
 
 
