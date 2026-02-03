@@ -19,6 +19,11 @@ pub struct Derivation {
     pub name: String,
     pub hash: Option<String>,
     pub inward_edges: Option<Vec<String>>,
+    pub container: Option<String>,
+    pub time: Option<usize>,
+    pub memory: Option<usize>,
+    pub shell: Option<String>
+    
 }
 
 fn calculate_hash(name: String, script: String) -> String {
@@ -52,6 +57,10 @@ impl Derivation {
             name: String::from_steelval(name)
                 .expect("Couldn't interpret name as a string"), // need to handle this error
             inward_edges: None,
+            container: None,
+            time: None,
+            memory: None,
+            shell: None
         };
 
         Ok(d)
@@ -60,7 +69,11 @@ impl Derivation {
         self.attributes.get(&key).cloned()
     }
     pub fn script(&self) -> String {
-        self.script.to_string()
+        if let Some(v) = self.hash.clone(){
+            self.script.to_string().replace(super::OUT_PLACEHOLDER, "../out")
+        } else {
+            self.script.to_string()
+        }
     }
 
     pub fn hash(&self) -> String {
@@ -89,10 +102,11 @@ impl Derivation {
 
     pub fn write_hash(&mut self) {
         let hash = calculate_hash(self.name.clone(), self.script.to_string());
+        
         self.hash = Some(hash);
     }
 
-    pub fn display(&self) -> Table {
+    pub fn display(&self) -> DisplayTable {
         let mut table = Table::new();
         let hash = self.hash.clone().unwrap_or("None".to_string());
         table
@@ -104,18 +118,36 @@ impl Derivation {
             .add_row(vec!["name".to_string(), self.name.clone()])
             .add_row(vec![
                 "script".to_string(),
-                self.script.to_string(),
+                self.script(),
             ]);
 
-        table
+        DisplayTable { table}
+    }
+    pub fn run(&self) -> Result<(), ()> {
+        
+        todo!();
+        Ok(())
     }
 }
 
 
+// have to make custom type because can't implement external type for type from different crate
+pub struct DisplayTable { table: Table }
+
+impl Custom for DisplayTable {
+    fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
+        Some(Ok(format!("\n{}", self.table)))
+    }
+}
+impl std::fmt::Display for DisplayTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "\n{}", self.table)
+    }
+}
 
 impl Custom for Derivation{
     fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
-        Some(Ok(format!("\n{}", self.display())))
+        Some(Ok(format!("{:?}", self.hash.clone().expect("no hash available"))))
     }
 }
 

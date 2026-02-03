@@ -10,12 +10,12 @@ pub struct ScriptString {
 
 impl ScriptString {
     pub fn new(script: String) -> ScriptString {
-        let interpolation_regex = Regex::new(r"\$\{(.*?)\}").unwrap();
+        let interpolation_regex =
+            Regex::new(r"\$\{(.*?)\}").expect("couldn't make regex");
         let matches: Vec<String> = interpolation_regex
             .captures_iter(script.as_str())
             .map(|captures| captures[1].to_string())
             .collect();
-
 
         let split: Vec<String> = interpolation_regex
             .split(script.as_str())
@@ -29,27 +29,36 @@ impl ScriptString {
     }
 }
 
-impl ToString for ScriptString {
-    fn to_string(&self) -> String {
-        let mut script_fragments = VecDeque::from(self.string_fragments.clone());
-        let mut s = script_fragments.pop_front().unwrap();
-        for (i, frag) in std::iter::zip(self.interpolations.iter(), script_fragments.iter()) {
+impl std::fmt::Display for ScriptString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut script_fragments = self.string_fragments.clone();
+        let mut s = script_fragments
+            .pop_front()
+            .expect("couldn't get string fragments");
+        for (i, frag) in
+            std::iter::zip(self.interpolations.iter(), script_fragments.iter())
+        {
             s = s + i + frag;
         }
-        indent_string(s).unwrap()
+        write!(
+            f,
+            "{}",
+            indent_string(s).expect("Couldn't unwrap the indent string")
+        )
     }
 }
 
 pub fn indent_string(s: String) -> Result<String, String> {
     let mut strings = s.split("\n").peekable();
     strings.next(); // consumes first element of iterator (will be needed to add script annotations like 'bash')
-    let whitespace_regex = Regex::new(r"^(\s*)").unwrap();
+    let whitespace_regex =
+        Regex::new(r"^(\s*)").expect("Couldn't make whitespace regex");
     let first_elem = match strings.peek() {
         Some(v) => v,
         None => return Err("String is empty!!".to_string()),
     };
     let indents = match whitespace_regex.captures(first_elem) {
-        Some(v) => v.get(1).unwrap().as_str(),
+        Some(v) => v.get(1).expect("indent regex failed").as_str(),
         None => "",
     };
 
@@ -62,5 +71,5 @@ pub fn indent_string(s: String) -> Result<String, String> {
         .collect::<std::vec::Vec<String>>()
         .join("\n");
 
-    return Ok(s);
+    Ok(s)
 }

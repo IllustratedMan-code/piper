@@ -88,6 +88,7 @@ impl Config {
                 .into_steelval()
                 .expect("Couldn't register config object into config vm."),
         );
+
         module.register_fn("insert_config", Config::insert_config);
         module.register_fn("insert_param", Config::insert_param);
         vm.register_module(module);
@@ -113,7 +114,6 @@ impl Config {
         config = vm
             .extract::<Config>("Config.config")
             .expect("couldn't extract config from config vm");
-        println!("{:?}", config);
         config
     }
     pub fn insert_param(&mut self, key: String, value: ParamValue) {
@@ -143,5 +143,14 @@ impl Config {
                     panic!("couldn't register params value: {:?}", k)
                 });
         }
+    }
+    pub fn entry_point(&self) -> String{
+        let entry_point = self.config.get("entryPoint").expect("No entryPoint in config!");
+        if let ParamValue::String(v) = entry_point{
+            v.clone()
+        } else {
+            panic!("Entrypoint conversion to string failed, this should never happen!")
+        }
+
     }
 }

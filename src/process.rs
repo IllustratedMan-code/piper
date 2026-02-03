@@ -3,31 +3,29 @@
 //! form the nodes of the ProcessGraph
 use std::{collections::HashMap, hash::Hash};
 use steel::rvals::Custom;
-use steel::rvals::IntoSteelVal;
+use steel::rvals::{FromSteelVal, IntoSteelVal};
 use steel::steel_vm::builtin::BuiltInModule;
 use steel::steel_vm::engine::Engine;
 use steel::steel_vm::register_fn::RegisterFn;
 use steel_derive::Steel;
-mod derivation;
-use derivation::Derivation;
+pub mod derivation;
 use super::config::Config;
+use derivation::Derivation;
 
 /// Directed Acyclic Graph containing the derivation nodes
 #[derive(Clone, Steel)]
 pub struct ProcessGraph {
-    nodes: HashMap<String, derivation::Derivation>,
-    pub vm: Engine,
-    pub config: Config
+    pub nodes: HashMap<String, derivation::Derivation>,
+    pub config: Config,
 }
 
-
+static OUT_PLACEHOLDER: &str = "0000000000000000000-outdir";
 
 impl ProcessGraph {
-    pub fn new(vm: Engine, config: Config) -> ProcessGraph {
-        let mut dag = ProcessGraph {
+    pub fn new(vm: &mut Engine, config: Config) -> ProcessGraph {
+        let dag = ProcessGraph {
             nodes: HashMap::<String, derivation::Derivation>::new(),
-            vm,
-            config
+            config,
         };
 
         let mut module = BuiltInModule::new("process/dag");
@@ -48,6 +46,7 @@ impl ProcessGraph {
         module.register_fn("process.attr", Derivation::attr);
         module.register_fn("process.script", Derivation::script);
         module.register_fn("process.hash", Derivation::hash);
+        module.register_fn("process.display", Derivation::display);
         module
             .register_fn("process.interpolations", Derivation::interpolations);
         module.register_fn(
@@ -55,19 +54,31 @@ impl ProcessGraph {
             Derivation::set_interpolations,
         );
         module.register_fn("process.inward-hashes", Derivation::inward_hashes);
-        module.register_value("config", dag.config.clone().into_steelval().expect("couldn't insert config into process vm"));
-        dag.vm.register_module(module);
+        module.register_value(
+            "config",
+            dag.config
+                .clone()
+                .into_steelval()
+                .expect("couldn't insert config into process vm"),
+        );
+        module.register_value(
+            "out-hash-placeholder",
+            OUT_PLACEHOLDER
+                .into_steelval()
+                .expect("Couldn't convert OUT_PLACEHOLDER to steelval"),
+        );
+        vm.register_module(module);
 
-        dag.vm.register_steel_module(
+        vm.register_steel_module(
             "process".to_string(),
             include_str!("steel-modules/process.scm").to_string(),
         );
-        dag.vm
-            .run(r#"(require "process")"#)
+        vm.run(r#"(require "process")"#)
             .expect("Couldn't require process module!");
 
-
-        dag
+        let vm_dag = vm.extract_value("dag.dag").expect("couldn't extract dag");
+        ProcessGraph::from_steelval(&vm_dag)
+            .expect("Couldn't convert dag to process graph")
     }
 
     pub fn add_process(

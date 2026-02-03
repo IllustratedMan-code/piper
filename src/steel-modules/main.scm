@@ -6,14 +6,15 @@
 (define proc1 (process
  (hash 'name "first-process"
        'script "
-        echo ${(+ 5 6 2 x)}")))
+        mkdir ${out}
+        echo ${(+ 5 6 2 x)} > ${out}/result.txt")))
 
 
 (define proc2 (process
  (hash 'name "cool-process"
        'script "
-        echo ${proc1} ${(+ 1 2 3)} ${proc1}
-        echo \"hi\"
+        cat ${out}/result.txt
+        ${out}
 ")))
 
 

@@ -11,3 +11,4 @@ steel-repl = { git="https://github.com/mattwparas/steel.git", branch = "master" 
 steel-derive = { git="https://github.com/mattwparas/steel.git", branch = "master" }
 comfy-table = "7.2.1"
 clap = { version = "4.5.49", features = ["derive"] }
+enum_dispatch = "0.3.13"
