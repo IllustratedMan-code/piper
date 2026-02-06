@@ -2,16 +2,17 @@ use super::process::ProcessGraph;
 use steel::steel_vm::engine::Engine;
 use super::config::Config;
 
-pub fn engine(config_string: std::string::String) -> Engine {
-    let vm = Engine::new();
-    let  c = Config::new(config_string);
-    let dag = ProcessGraph::new(vm, c);
-    dag.vm
+pub fn engine(config_path: Option<std::path::PathBuf>) -> Engine {
+    let mut vm = Engine::new();
+    let  c = Config::new(config_path);
+    c.register_params(&mut vm);
+    ProcessGraph::init(&mut vm, c);
+    vm
 }
 
 macro_rules! test_scm_file {
     ($file:expr) => {{
-        let mut e = engine("".to_string());
+        let mut e = engine(None);
         e.run(include_str!($file)).expect("Failed Test");
     }};
 }
