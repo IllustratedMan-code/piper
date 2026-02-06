@@ -5,12 +5,13 @@
 	 dag.config
 	 process.display
 	 dag.dag
+	 dag.node_count
 	 )
 
 (require-builtin process/dag as dag.)
 
 (define (process hashmap)
-  (let* ((derivation (dag.process hashmap))
+  (let* ((derivation (dag.process hashmap dag.config))
 	 (out-placeholder dag.out-hash-placeholder))
     (dag.process.set-interpolations
      derivation

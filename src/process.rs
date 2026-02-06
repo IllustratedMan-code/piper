@@ -21,8 +21,14 @@ pub struct ProcessGraph {
 
 static OUT_PLACEHOLDER: &str = "0000000000000000000-outdir";
 
+pub fn extract_graph(vm: &mut Engine) -> ProcessGraph {
+    let vm_dag = vm.extract_value("dag.dag").expect("couldn't extract dag");
+    ProcessGraph::from_steelval(&vm_dag)
+        .expect("Couldn't convert dag to process graph")
+}
+
 impl ProcessGraph {
-    pub fn new(vm: &mut Engine, config: Config) -> ProcessGraph {
+    pub fn init(vm: &mut Engine, config: Config) {
         let dag = ProcessGraph {
             nodes: HashMap::<String, derivation::Derivation>::new(),
             config,
@@ -75,10 +81,6 @@ impl ProcessGraph {
         );
         vm.run(r#"(require "process")"#)
             .expect("Couldn't require process module!");
-
-        let vm_dag = vm.extract_value("dag.dag").expect("couldn't extract dag");
-        ProcessGraph::from_steelval(&vm_dag)
-            .expect("Couldn't convert dag to process graph")
     }
 
     pub fn add_process(

@@ -55,8 +55,8 @@ impl IntoSteelVal for ParamValue {
 
 #[derive(Debug, Clone, Steel)]
 pub struct Config {
-    params: HashMap<String, ParamValue>,
-    config: HashMap<String, ParamValue>,
+    pub params: HashMap<String, ParamValue>,
+    pub config: HashMap<String, ParamValue>,
 }
 
 macro_rules! type_key {
@@ -102,8 +102,8 @@ impl Config {
             .expect("Couldn't create config defaults");
 
         if let Some(v) = config_path {
-            vm.run_or_print_error(v.clone()).unwrap_or_else(|e| {
-                println!(
+            vm.run_file_or_print_error(v.clone()).unwrap_or_else(|e| {
+                eprintln!(
                     "{}: couldn't read {:?} because of '{}', using defaults",
                     "Warning".bold().yellow(),
                     v,

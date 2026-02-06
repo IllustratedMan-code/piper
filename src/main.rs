@@ -23,9 +23,9 @@ struct Cli {
 
 fn main() {
     let args = Cli::parse();
-    let (mut engine, process_graph) = engine(Some(args.config));
+    let mut engine = engine(Some(args.config));
     engine
-        .run(include_str!("steel-modules/main.scm"))
+        .run_builtin_or_print_error(include_str!("steel-modules/main.scm"), "builtin/main.scm")
         .expect("Couldn't run main!");
     if args.repl {
         let repl = steel_repl::Repl::new(engine)
@@ -33,5 +33,7 @@ fn main() {
         repl.run().expect("couldn't load repl");
         //steel_repl::repl::repl::newrun_repl(engine).expect("Couldn't run repl!");
     } else {
+        let runner = derivation_runner::DerivationRunner { graph: process::extract_graph(&mut engine)};
+        runner.run_derivations();
     }
 }

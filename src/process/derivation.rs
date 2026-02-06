@@ -6,15 +6,17 @@ use std::{
 };
 use steel::{
     SteelVal,
-    rvals::{Custom, FromSteelVal},
+    rvals::{Custom, FromSteelVal, IntoSteelVal},
 };
 mod scriptstring;
 use scriptstring::ScriptString;
-mod evaluator;
+
+use crate::config::{Config, ParamValue};
+pub mod evaluator;
 
 #[derive(Clone)]
 pub struct Derivation {
-    attributes: HashMap<SteelVal, SteelVal>,
+    attributes: HashMap<String, SteelVal>,
     pub script: ScriptString,
     pub name: String,
     pub hash: Option<String>,
@@ -22,33 +24,85 @@ pub struct Derivation {
     pub container: Option<String>,
     pub time: Option<usize>,
     pub memory: Option<usize>,
-    pub shell: Option<String>
-    
+    pub shell: String,
+    pub hpc_runtime: Option<String>,
+    pub container_runtime: Option<String>,
+    pub work_dir: String
 }
 
-fn calculate_hash(name: String, script: String) -> String {
+fn calculate_hash(
+    name: String,
+    script: String,
+    container: String,
+    shell: String,
+) -> String {
     let mut s = DefaultHasher::new();
-    let combined = format!("{}{}", name, script);
+    let combined = format!("{}{}{}{}", name, script, container, shell);
     combined.hash(&mut s);
     let hash = s.finish().to_string();
     format!("{}-{}", hash, name)
 }
 
+fn use_default_if_exists(
+    default: HashMap<String, ParamValue>,
+    values: HashMap<String, SteelVal>,
+) -> HashMap<String, SteelVal> {
+    let mut steel_defaults: HashMap<String, SteelVal> = default
+        .iter()
+        .map(|(k, v)| {
+            (
+                k.clone(),
+                v.clone()
+                    .into_steelval()
+                    .expect("Couldn't convert param to steelval"),
+            )
+        })
+        .collect();
+    steel_defaults.extend(values);
+    steel_defaults
+}
+
+macro_rules! extract_attribute {
+    ($attributes:expr,$attr_name:literal, $target_type:ty) => {{
+        <$target_type>::from_steelval($attributes.get($attr_name).ok_or_else(
+            || format!("{} attribute does not exist!", $attr_name),
+        )?)
+        .map_err(|e| e.to_string())?
+    }};
+}
+
 impl Derivation {
     pub fn new(
-        attributes: HashMap<SteelVal, SteelVal>,
+        attributes: HashMap<String, SteelVal>,
+        config: Config,
     ) -> Result<Derivation, String> {
-        let name = match attributes.get(&SteelVal::SymbolV("name".into())) {
+        // attributes unique to derivations
+        let name = match attributes.get("name") {
             Some(v) => v,
             None => return Err("Name attribute does not exist".to_string()),
         };
-        let script = match attributes.get(&SteelVal::SymbolV("script".into())) {
+        let script = match attributes.get("script") {
             Some(v) => v,
             None => return Err("Script attribute does not exist!".to_string()),
         };
 
+        // attributes from the config
+        let merged_attributes =
+            use_default_if_exists(config.config, attributes.clone());
+
+        let time = Some(extract_attribute!(merged_attributes, "time", usize));
+
+        let memory =
+            Some(extract_attribute!(merged_attributes, "memory", usize));
+
+        let shell = extract_attribute!(merged_attributes, "shell", String);
+
+        let work_dir = extract_attribute!(merged_attributes, "workDir", String);
+
+        
+
         let d = Derivation {
-            attributes: attributes.clone(),
+            attributes: merged_attributes.clone(),
             hash: None,
             script: ScriptString::new(
                 String::from_steelval(script)
@@ -58,19 +112,24 @@ impl Derivation {
                 .expect("Couldn't interpret name as a string"), // need to handle this error
             inward_edges: None,
             container: None,
-            time: None,
-            memory: None,
-            shell: None
+            time,
+            memory,
+            shell,
+            hpc_runtime: None,
+            container_runtime: None,
+            work_dir
         };
 
         Ok(d)
     }
-    pub fn attr(&self, key: SteelVal) -> Option<SteelVal> {
+    pub fn attr(&self, key: String) -> Option<SteelVal> {
         self.attributes.get(&key).cloned()
     }
     pub fn script(&self) -> String {
-        if let Some(v) = self.hash.clone(){
-            self.script.to_string().replace(super::OUT_PLACEHOLDER, "../out")
+        if let Some(v) = self.hash.clone() {
+            self.script
+                .to_string()
+                .replace(super::OUT_PLACEHOLDER, "../out")
         } else {
             self.script.to_string()
         }
@@ -101,8 +160,13 @@ impl Derivation {
     }
 
     pub fn write_hash(&mut self) {
-        let hash = calculate_hash(self.name.clone(), self.script.to_string());
-        
+        let hash = calculate_hash(
+            self.name.clone(),
+            self.script.to_string(),
+            self.container.clone().unwrap_or("".to_string()).to_string(),
+            self.shell.clone(),
+        );
+
         self.hash = Some(hash);
     }
 
@@ -117,22 +181,26 @@ impl Derivation {
             .add_row(vec!["hash".to_string(), hash])
             .add_row(vec!["name".to_string(), self.name.clone()])
             .add_row(vec![
-                "script".to_string(),
-                self.script(),
-            ]);
+                "container".to_string(),
+                self.container.clone().unwrap_or("None".to_string()),
+            ])
+            .add_row(vec![
+                "shell".to_string(),
+                self.shell.clone(),
+            ])
+            .add_row(vec!["script".to_string(), self.script()]);
 
-        DisplayTable { table}
+        DisplayTable { table }
     }
-    pub fn run(&self) -> Result<(), ()> {
-        
-        todo!();
-        Ok(())
+    pub fn run(&self) -> Option<evaluator::HPCRuntime> {
+        evaluator::run_derivation(self)
     }
 }
 
-
 // have to make custom type because can't implement external type for type from different crate
-pub struct DisplayTable { table: Table }
+pub struct DisplayTable {
+    table: Table,
+}
 
 impl Custom for DisplayTable {
     fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
@@ -145,9 +213,12 @@ impl std::fmt::Display for DisplayTable {
     }
 }
 
-impl Custom for Derivation{
+impl Custom for Derivation {
     fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
-        Some(Ok(format!("{:?}", self.hash.clone().expect("no hash available"))))
+        Some(Ok(format!(
+            "{}",
+            self.hash.clone().expect("no hash available")
+        )))
     }
 }
 
@@ -162,7 +233,6 @@ impl std::fmt::Debug for Derivation {
         write!(f, "{:?}", self.attributes)
     }
 }
-
 
 fn extract_derivation_hashes(val: SteelVal) -> Vec<String> {
     let mut vec = Vec::<String>::new();
@@ -187,6 +257,5 @@ fn extract_derivation_hashes_recursive(val: SteelVal, vec: &mut Vec<String>) {
         for (_, v) in hashmap {
             extract_derivation_hashes_recursive(v, vec)
         }
-
     }
 }
