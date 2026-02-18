@@ -1,4 +1,7 @@
 .direnv
+
+
+# emacs autosaves
 .#*
 
 # Added by cargo

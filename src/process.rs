@@ -9,6 +9,7 @@ use steel::steel_vm::engine::Engine;
 use steel::steel_vm::register_fn::RegisterFn;
 use steel_derive::Steel;
 pub mod derivation;
+pub mod derivation_runner;
 use super::config::Config;
 use derivation::Derivation;
 
@@ -16,11 +17,13 @@ use derivation::Derivation;
 #[derive(Clone, Steel)]
 pub struct ProcessGraph {
     pub nodes: HashMap<String, derivation::Derivation>,
+    pub outputs: Option<derivation::Derivation>,
     pub config: Config,
 }
 
 static OUT_PLACEHOLDER: &str = "0000000000000000000-outdir";
 
+/// extracts the ProcessGraph object from the scheme vm
 pub fn extract_graph(vm: &mut Engine) -> ProcessGraph {
     let vm_dag = vm.extract_value("dag.dag").expect("couldn't extract dag");
     ProcessGraph::from_steelval(&vm_dag)
@@ -28,6 +31,7 @@ pub fn extract_graph(vm: &mut Engine) -> ProcessGraph {
 }
 
 impl ProcessGraph {
+    /// Inject the ProcessGraph object into the given scheme vm
     pub fn init(vm: &mut Engine, config: Config) {
         let dag = ProcessGraph {
             nodes: HashMap::<String, derivation::Derivation>::new(),

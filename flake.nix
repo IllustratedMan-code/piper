@@ -46,6 +46,7 @@
               rustfmt
               clippy
               cargo-modules
+	      mdbook
             ];
           };
         };

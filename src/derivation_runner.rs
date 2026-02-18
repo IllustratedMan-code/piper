@@ -54,7 +54,6 @@ impl DerivationRunner {
             for mut handle in &mut handles.into_iter().flatten() {
                     handle.wait();
             }
-
         }
     }
 }
