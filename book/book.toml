@@ -1,0 +1,5 @@
+[book]
+authors = ["IllustratedMan-code"]
+language = "en"
+src = "src"
+title = "Piper: The pipeline manager"

@@ -1,0 +1,110 @@
+
+
+* Testing on different cluster job schedulers
+- I have access to LSF
+- Slurm can be tested with https://github.com/giovtorres/slurm-docker-cluster
+
+
+* hashing algorithms
+- To prevent hash collision, use sha2, though who knows if this is
+  truly necessary
+- Metadata should be imported using polars bindings
+  - Metadata objects are "derivation generators", which are rehashed
+    every time they are used in a derivation, this way, the metadata
+    can be changed in the pipeline, but each time it is used, it
+    generates an isolated derivation.
+
+
+* Scheme help
+=~>= can be used as a way to have a "dot operator" in scheme
+
+#+begin_src scheme
+(~> (read_csv "test.csv")
+    (with-header)
+    (finish))
+#+end_src
+
+which uses the output of the first function as inputs to the following
+functions in their "self" spot
+
+
+* Derivation generators
+
+- Sometimes, objects need to be changed over the course of the
+  pipeline's creation, before evaluation
+- For example, metadata in spreadsheet form may need to changed to
+  include multiple sets of derivations at different times
+- To allow for this, metadata/spreadsheet objects are "derivation
+  generators", returning different derivations depending on their
+  state
+- Metadata objects can be thought of as an object containing a list of
+  derivations as well as a derivation which represents the metadata
+  - When the contents change, then the metadata also changes,
+    resulting in a different derivation.
+- Alternatively, metadata functions could all return new objects,
+  preventing the problem all together
+
+ #+begin_src scheme
+
+(define mymetadata (read_csv "metadata.csv"))
+
+
+;; mymetadata -> returns hash A
+
+(~> mymetadata
+    (column-map file-hash "resultPath" "resultPath") ;; overwrite resultPath column in place
+    )
+
+;; mymetadata -> returns hash B
+
+;; or
+
+(define mymetadata 
+  (-> mymetadata
+    (column-map file-hash "resultPath" "resultPath") ;; overwrite resultPath column and return new spreadsheet
+    ))
+
+;; mymetadata -> returns hash B
+
+;;  THis is the better solution, otherwise side effects may cause havok
+;; plus, if metadata is too big for memory, something is very wrong
+
+ #+end_src
+
+
+* Derivation iterators
+
+Something equivalent to nextflow's channels. For example, if a process
+returns an unknown set of outputs that can be defined by a regex
+pattern or glob that must each be run in their own processes
+individually, then the current derivation model cannot handle it.
+
+The current model creates the entire tree before evaluation, meaning
+the nodes must be known at "compile" time. As such, the above example
+is incompatible.
+
+To assuage this problem, there needs to be a type of object that
+define lazily evaluated node relationships that can't be defined until
+runtime. This lazily evaluated object won't create nodes until the
+required information is known, in this case, the pattern or glob
+defines the nodes, but the result of  the glob cannot be known until
+runtime.
+
+This object will be known as a "derivation iterator", which is lazily
+evaluated at runtime.
+
+a derivation can be converted into a derivation iterator, which can
+receive map operations (evaluated at runtime), or be collected into a
+derivation (known at compile time). The hash of the derivation that is
+collected is based on the converted derivation's hash plus the map
+operations (functions must return derivation objects).
+
+This assumes that the outputs are defined by the functions
+only, and aren't affected by side effects like time. For example, if a
+script were to randomly generate a set of nodes each time, then this
+breaks the pipeline's assumptions as the hash is not technically based
+on the visible inputs.
+
+
+
+

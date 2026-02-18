@@ -13,6 +13,7 @@ use scriptstring::ScriptString;
 
 use crate::config::{Config, ParamValue};
 pub mod evaluator;
+use sha2::Digest;
 
 #[derive(Clone)]
 pub struct Derivation {
@@ -27,7 +28,7 @@ pub struct Derivation {
     pub shell: String,
     pub hpc_runtime: Option<String>,
     pub container_runtime: Option<String>,
-    pub work_dir: String
+    pub work_dir: String,
 }
 
 fn calculate_hash(
@@ -36,11 +37,11 @@ fn calculate_hash(
     container: String,
     shell: String,
 ) -> String {
-    let mut s = DefaultHasher::new();
+    let mut hasher = sha2::Sha256::new();
     let combined = format!("{}{}{}{}", name, script, container, shell);
-    combined.hash(&mut s);
-    let hash = s.finish().to_string();
-    format!("{}-{}", hash, name)
+    hasher.update(combined);
+    let result = hasher.finalize();
+    format!("{:x}-{}", result, name) // {:x} works because of the LowerHex trait
 }
 
 fn use_default_if_exists(
@@ -99,8 +100,6 @@ impl Derivation {
 
         let work_dir = extract_attribute!(merged_attributes, "workDir", String);
 
-        
-
         let d = Derivation {
             attributes: merged_attributes.clone(),
             hash: None,
@@ -117,7 +116,7 @@ impl Derivation {
             shell,
             hpc_runtime: None,
             container_runtime: None,
-            work_dir
+            work_dir,
         };
 
         Ok(d)
@@ -184,10 +183,7 @@ impl Derivation {
                 "container".to_string(),
                 self.container.clone().unwrap_or("None".to_string()),
             ])
-            .add_row(vec![
-                "shell".to_string(),
-                self.shell.clone(),
-            ])
+            .add_row(vec!["shell".to_string(), self.shell.clone()])
             .add_row(vec!["script".to_string(), self.script()]);
 
         DisplayTable { table }

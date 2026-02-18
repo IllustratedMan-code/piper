@@ -1,5 +1,101 @@
 # Architecture
 
+Below is an informal description of why piper exists and how it works. For a detailed description of the syntax, check [GRAMMER.md](./GRAMMAR.md)
+
+## The problem
+
+Scientific analysis often requires the connection of many different tools.
+Analysts often create a series of scripts that generate intermediate files. Assuming the analyst is
+organized, they might label the script with the appropiate step in the analysis.
+
+```
+script1.sh
+script2.sh
+script3.sh
+```
+
+This is better than a single script as only a portion of the scripts need to be rerun if they change
+during development. For example, if `script3.sh` were to change, only `script3.sh` would need to be rerun.
+However, if `script1.sh` is changed, than all the scripts need to be rerun. In a single script model,
+the entire script needs to be rerun after every change.
+
+This requires the analyst to be conscious of every change they make, rerunning the appropriate scripts as they go.
+As with every human process, the analyst will not be correct every time. They may forget to run an appropriate step,
+or they may not ensure that each step finishes correctly before beginning the next step.
+
+Additionally, there are many times when an analyst will need to use different environments for their scripts at different
+steps. `script1.sh` might requires version 1.0 of an R package, while script3.sh may require version 2.0 of the same R package.
+One way of handling this problem is with containers, though this puts more pressure on the analyst to remember which container goes
+to which script.
+
+There are also many times when a script will require significant amounts of computing resources. High performance cluster environments
+allow one to request computational resources for specific scripts, though they often do not provide an easy way to ensure a script
+ran successfully. In the case where the analyst must run one script after another, they must wait for the execution of one script
+to finish before starting another, to ensure the script ran successfully.
+
+## The solution: Pipeline managers
+
+To assuage these problems with analysis, computational tools have popped up to handle the connections between scripts. Snakemake
+and Nextflow are the two primary tools for this, each having their own set of problems. Piper (this tool), is also
+meant to solve these analysis problems and create a minimum of friction for the analyst. Piper was born out
+of the author's pain using existing solutions.
+
+## Piper's evaluation model
+
+Piper models scripts or "processes" as nodes in a directed acyclic graph. Nodes can depend upon other nodes, however there are
+always nodes in the graph with no dependencies. Cycles, or loops in the graph are also guaranteed to not exist.
+
+TODO! (add image of directed acyclic process graph).
+
+Any node in the graph is known as a "derivation", which is evaluated after the entire graph is created. A derivation is
+associated with a unique id, created by hashing the inputs as well as the contents of the derivation itself. For example,
+if process A depends on process B, then the hash of process A is based on the script associated with process A as well as
+the hash of process B. This means that the hashes of nodes with no inward edges must be computed first, then the nodes that connect to those nodes must
+be computed and so on and so forth.
+
+This hashing process ensures that when a node changes, all nodes that depend on that node also change. A cache is created for each
+hash, so derivations will only be evaluated once. If the hash changes, piper considers the derivation to be different than it was before,
+connected in no way to the previous version. A new cache would be created for the new hash. The old cache will not be deleted and must be manually garbage collected
+by piper. This way, if the developer of a piper pipeline makes a change to a script, then reverts that change, the cache will still exist.
+
+There are three types of derivation, a process derivation, a file derivation, and an output derivation.
+
+Process derivations haver already been introduced, but they contain a script, typically in a shell language like bash, that creates output files when it
+is run. The process outputs are cached after it is run, which occurs after the pipeline has been defined.
+
+File derivations do not run scripts, instead they simply cache the contents of a file. These exist to make it easy to include scripts
+written in various languages easy to integrate into the pipeline. For example, process derivation "A" could make use of file derivation "python_script"
+when it is run. This ensures that if any changes are made to the file in the file derivation, process derivation A will be rerun and recached.
+
+There is only one output derivation per pipline, defining the root, or "apex" of the process graph. Any process nodes connected to the output node will
+be run when the pipeline runs. The output of the output derivation will also not be contained in the work directory, but in an "output" directory defined in the config.
+
+That's it! Piper's model is intended to be intuitive, requiring a minimum amount of time to learn.
+
+## Using piper
+
+Piper pipelines are created using scheme. Pipelines are evaluated after all of the scheme code is run. The scheme interpreter is embedded into the piper program. The version of scheme used in this project is named ["Steel"](https://github.com/mattwparas/steel), a written by Matthew Paras. Steel is embedded into piper, which injects the interpreter with custom syntax and functions for pipeline creation.
+
+### Why scheme?
+
+Scheme is a type of lisp, a family of languages that have very simple syntax that can be extended with "macros", a feature very few languages have.
+These macros allow the creation of new syntax features without much effort, making lisp an ideal choice as a base for domain specific languages (DSL).
+
+Derivations are not functions, but rather macros, so the syntax can be adjusted
+to make them more intuitive. This should make it easier for newcomers to scheme to get right into pipeline development.
+
+# Hash invalidation
+
+- hashes are computed from the contents of the derivation, so a change to a preceding derivation should change the hashes of all decending derivations.
+- TODO Need to ensure that the user cannot accidentally modify a symlink by setting it to read only
+  - So, calculate the output, then set all files in output to read only.
+  - This is probably how nix does it, though it has an easier time because everything in the nix store is guaranteed to be read-only
+  - This is another problem with nextflow :(
+- TODO Need a way to invalidate the hash of a node and all its dependents in the case of derivations that depend on external resources (like sql queries to external databases). Hashes won't change normally as the script won't change, but the outputs will.
+- TODO Implement a "run derivation" function that runs only the graph defined by a particular derivation, useful for repl based evalutations and should "just work" for the output derivation.
+
+## Other notes
+
 Processes are "compiled" into derivations, then the
 derivations are assembled into a directed acyclic graph.
 

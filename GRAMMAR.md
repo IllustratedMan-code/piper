@@ -1,18 +1,29 @@
-Piper works using "processes" which define the "jobs" that are run on the HPC platform.
-`process` is a macro that creates a derivation, a unique set of build instructions. Each derivation is a node in a directed acyclic graph. Nodes with no inward edges are built first,
-then their children and so on.
+Pipelines are written in scheme, the particular variant of which is called [Steel](https://github.com/mattwparas/steel), which has support for the [r5rs](https://standards.scheme.org/official/r5rs.pdf) syntax.
 
-When referencing a derivation in a script string, the variable name resolves to a path.
+Pipelines have access to various functions and macros for building pipelines.
 
-Each derivation, when built, is stored in a directory inside of a "work" directory. This derivation directory contains a `build` folder and an `out` folder. The out directory can be referenced with the `out` variable that is given to all script strings. Within an interpolation, any scheme code is valid `${(+ 1 2 3 4)}`. Derivation hashes will be calculated from the final evaluated script string (before evaluating `out`) and all process attributes. When referencing the derivation, the path will refer to the `out` path.
+To create a derivation, there are three macros, `file`, `process`, and `outputs`.
+After the macro is run, a derivation will be added to the process graph. Once all
+the scheme code has run, piper will evaluate all of the derivations connected to the
+outputs derivation.
 
 ```scheme
+
+(define myfile (file "myscript.py"))
+
+;; Big files and binary files should be hashed by their timestamp
+;; instead of their contents, though
+;; big files will switch to this hashing method automatically based
+;; on the cache_filesize_cutoff config item
+(define myfile2 (file "myscript.py" #:hash_method "timestamp")
 
 
 (define mypath
 	(process
 		(script ''bash
-			echo "hi" > $out/mypath.txt
+			mkdir ${out}
+			echo "hi" > ${out}/mypath.txt
+			python ${myfile} > ${out}/pyout.txt
 		''
 		)))
 
@@ -20,21 +31,46 @@ Each derivation, when built, is stored in a directory inside of a "work" directo
 
 (define (MyProcess t)
 	(process
+		(name "chairs")
 		(container "user/repo:tag")
 		(memory "1Gb")
 		(time t)
-		(script ''bash
+		(shell "bash")
+		(script ''
+			mkdir ${out}
 			cp ${mypath}/mypath.txt ${out}/mypath.txt
 			echo "chairs" > ${out}/chairs.txt
 		'')))
 
 
 (outputs
-  '("my/path" . (MyProcess "1h") ) ;; copies $out of MyProcess to my/path
+  ("my/path" (MyProcess "1h")) ;; copies $out of MyProcess to my/path
 )
 
 ```
 
-Any attributes are valid in a process, but there are some special ones that modify how a process is run/created.
+Each of these macros evaluates to a derivation object, which is understood to be equivalent to its hash.
 
-Special attributes
+Before pipelines are created, piper also loads in a config, which is also defined in scheme. There are two functions here, `config` and `param`, which are used to define configuration items, and parameters, which can be specified on the command line as well as through the configuration file.
+
+```scheme
+(config workDir "./workdir")
+(param dataFile "/path/to/my/datafile.txt")
+```
+
+Config entries will affect the execution of the pipeline, but are predefined, so
+trying to add a config entry that isn't known by piper will fail. Config entries
+typically have default values.
+
+Parameters are completely arbitrary and none exist that are not defined by the pipeline creator.
+
+Parameters can be accessed within the pipeline under `params.*` (e.g `params.dataDir`)
+
+```scheme
+
+(define datafile (file params.dataFile))
+
+(outputs
+	("output_file"  datafile))
+
+```

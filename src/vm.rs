@@ -1,9 +1,11 @@
 use super::process::ProcessGraph;
 use steel::steel_vm::engine::Engine;
 use super::config::Config;
+use crate::bindings;
 
 pub fn engine(config_path: Option<std::path::PathBuf>) -> Engine {
     let mut vm = Engine::new();
+    bindings::register_bindings(&mut vm);
     let  c = Config::new(config_path);
     c.register_params(&mut vm);
     ProcessGraph::init(&mut vm, c);
