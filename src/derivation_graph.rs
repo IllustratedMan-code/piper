@@ -12,11 +12,12 @@ pub mod derivation;
 pub mod derivation_runner;
 use super::config::Config;
 use derivation::Derivation;
+use derivation::DerivationHash;
 
 /// Directed Acyclic Graph containing the derivation nodes
 #[derive(Clone, Steel)]
-pub struct ProcessGraph {
-    pub nodes: HashMap<String, derivation::Derivation>,
+pub struct DerivationGraph {
+    pub nodes: HashMap<derivation::DerivationHash, derivation::Derivation>,
     pub outputs: Option<derivation::Derivation>,
     pub config: Config,
 }
@@ -24,46 +25,37 @@ pub struct ProcessGraph {
 static OUT_PLACEHOLDER: &str = "0000000000000000000-outdir";
 
 /// extracts the ProcessGraph object from the scheme vm
-pub fn extract_graph(vm: &mut Engine) -> ProcessGraph {
-    let vm_dag = vm.extract_value("dag.dag").expect("couldn't extract dag");
-    ProcessGraph::from_steelval(&vm_dag)
+pub fn extract_graph(vm: &mut Engine) -> DerivationGraph {
+    let vm_dag = vm.extract_value("DG::graph").expect("couldn't extract dag");
+    DerivationGraph::from_steelval(&vm_dag)
         .expect("Couldn't convert dag to process graph")
 }
 
-impl ProcessGraph {
-    /// Inject the ProcessGraph object into the given scheme vm
+impl DerivationGraph {
+    /// Inject the DerivationGraph object into the given scheme vm
     pub fn init(vm: &mut Engine, config: Config) {
-        let dag = ProcessGraph {
-            nodes: HashMap::<String, derivation::Derivation>::new(),
+        let dag = DerivationGraph {
+            nodes: HashMap::<DerivationHash, derivation::Derivation>::new(),
             config,
+            outputs: None
         };
+        let mut module = BuiltInModule::new("DerivationGraph");
 
-        let mut module = BuiltInModule::new("process/dag");
-
-        module.register_type::<ProcessGraph>("ProcessGraph?");
+        module.register_type::<DerivationGraph>("DerivationGraph?");
         module.register_value(
-            "dag",
+            "graph",
             dag.clone().into_steelval().expect("Couldn't add dag to Vm"),
         );
 
-        //module.register_fn("process", ProcessGraph::process);
-        module.register_fn("node_count", ProcessGraph::node_count);
-        module.register_fn("display_nodes", ProcessGraph::display_nodes);
-        module.register_fn("outputs", ProcessGraph::outputs);
-        module.register_fn("add-process", ProcessGraph::add_process);
+        derivation::register_steel_functions(&mut module);
+        derivation::process::scriptstring::register_steel_functions(&mut module);
+        derivation::process::register_steel_functions(&mut module);
+        //module.register_fn("process", DerivationGraph::process);
+        module.register_fn("node_count", DerivationGraph::node_count);
+        module.register_fn("display_nodes", DerivationGraph::display_nodes);
+        module.register_fn("outputs", DerivationGraph::outputs);
+        module.register_fn("add-process", DerivationGraph::add_derivation);
         module.register_type::<Derivation>("Derivation?");
-        module.register_fn("process", Derivation::new);
-        module.register_fn("process.attr", Derivation::attr);
-        module.register_fn("process.script", Derivation::script);
-        module.register_fn("process.hash", Derivation::hash);
-        module.register_fn("process.display", Derivation::display);
-        module
-            .register_fn("process.interpolations", Derivation::interpolations);
-        module.register_fn(
-            "process.set-interpolations",
-            Derivation::set_interpolations,
-        );
-        module.register_fn("process.inward-hashes", Derivation::inward_hashes);
         module.register_value(
             "config",
             dag.config
@@ -78,7 +70,6 @@ impl ProcessGraph {
                 .expect("Couldn't convert OUT_PLACEHOLDER to steelval"),
         );
         vm.register_module(module);
-
         vm.register_steel_module(
             "process".to_string(),
             include_str!("steel-modules/process.scm").to_string(),
@@ -87,18 +78,12 @@ impl ProcessGraph {
             .expect("Couldn't require process module!");
     }
 
-    pub fn add_process(
+    pub fn add_derivation(
         &mut self,
-        mut derivation: Derivation,
-    ) -> Result<Derivation, InsertError<String>> {
-        derivation.write_hash();
-
-        let hash = derivation
-            .clone()
-            .hash
-            .expect("Derivation hash has no value!");
-
-        self.nodes.safe_insert(hash.clone(), derivation.clone())
+        derivation: Derivation,
+    ) -> Result<Derivation, InsertError<DerivationHash>> {
+        let hash = derivation.hash();
+        self.nodes.safe_insert(hash, derivation.clone())
     }
 
     pub fn node_count(&self) {
@@ -113,6 +98,7 @@ impl ProcessGraph {
         todo!()
     }
 }
+
 
 pub struct InsertError<K> {
     node_id: K,

@@ -3,14 +3,13 @@
 mod bindings;
 mod config;
 mod debug_utils;
-mod process;
+mod derivation_graph;
 mod vm;
 
 use crate::debug_utils::Runner;
 use clap::Parser;
 use steel_repl::colored::Colorize;
 use vm::engine;
-mod derivation_runner;
 
 /// The command line interface for piper
 #[derive(Parser)]
@@ -43,9 +42,7 @@ fn main() {
         repl.run().expect("couldn't load repl");
         //steel_repl::repl::repl::newrun_repl(engine).expect("Couldn't run repl!");
     } else {
-        let runner = derivation_runner::DerivationRunner {
-            graph: process::extract_graph(&mut engine),
-        };
-        runner.run_derivations();
+        let dag = derivation_graph::extract_graph(&mut engine);
+        dag.run();
     }
 }

@@ -36,14 +36,14 @@ fn make_dir_check_hash(work_dir: String) -> CacheState {
 }
 
 fn symlink_edges(
-    edges: Option<Vec<String>>,
+    edges: Vec<super::DerivationHash>,
     all_work_dir: String,
     work_dir: String,
 ) -> std::io::Result<()> {
-    if edges.is_none() {
+    if edges.is_empty() {
         return Ok(());
     } else {
-        for i in edges.unwrap() {
+        for i in edges {
 
             let symlink = std::os::unix::fs::symlink(
                 std::path::absolute(format!("{}/{}/out", all_work_dir, i))
@@ -54,7 +54,6 @@ fn symlink_edges(
             if let Err(e) = symlink {
                 match e.kind() {
                     std::io::ErrorKind::AlreadyExists => {
-                        ()
                     },
                     _ => {return Err(e)}
                 }
@@ -65,11 +64,13 @@ fn symlink_edges(
     Ok(())
 }
 
-pub fn run_derivation(derivation: &super::Derivation) -> Option<HPCRuntime> {
+pub fn run_derivation(derivation: &super::Process) -> Option<HPCRuntime> {
+    
+    
     let work_dir = format!(
-        "{}/{}/run",
+        "{}/{:?}/run",
         derivation.work_dir.clone(),
-        derivation.hash.clone().expect("Hash doesn't exist yet!")
+        derivation.hash
     );
 
     let cache_state = make_dir_check_hash(work_dir.clone());

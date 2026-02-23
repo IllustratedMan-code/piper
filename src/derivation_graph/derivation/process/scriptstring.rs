@@ -1,33 +1,53 @@
 use regex::Regex;
+use steel::SteelVal;
 use std::collections::VecDeque;
 use std::vec::Vec;
+use steel_derive::Steel;
+use steel::steel_vm::builtin::BuiltInModule;
+use steel::steel_vm::register_fn::RegisterFn;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Steel)]
 pub struct ScriptString {
     pub string_fragments: VecDeque<String>,
-    pub interpolations: Vec<String>,
+    pub interpolations: Vec<SteelVal>,
 }
 
+
 impl ScriptString {
-    pub fn new(script: String) -> ScriptString {
+    pub fn new(script: String) -> Result<ScriptString, String> {
+        let indent_script = indent_string(script)?;
         let interpolation_regex =
             Regex::new(r"\$\{(.*?)\}").expect("couldn't make regex");
-        let matches: Vec<String> = interpolation_regex
-            .captures_iter(script.as_str())
-            .map(|captures| captures[1].to_string())
-            .collect();
+        let matches: Vec<SteelVal> = interpolation_regex
+            .captures_iter(indent_script.as_str())
+            .map(|captures| captures[1].to_string()).map(|x| SteelVal::from(x)).collect();
 
         let split: Vec<String> = interpolation_regex
-            .split(script.as_str())
+            .split(indent_script.as_str())
             .map(|s| s.to_string())
             .collect();
 
-        ScriptString {
+        Ok(ScriptString {
             string_fragments: VecDeque::from(split),
             interpolations: matches,
-        }
+        })
+    }
+    pub fn set_interpolations(&mut self, new_interpolations: Vec<SteelVal>){
+        self.interpolations = new_interpolations;
+    }
+
+    pub fn interpolations(&self) -> Vec<SteelVal>{
+        self.interpolations.clone()
     }
 }
+
+pub fn register_steel_functions(module: &mut BuiltInModule){
+    module.register_type::<ScriptString>("ScriptString?");
+    module.register_fn("ScriptString", ScriptString::new);
+    module.register_fn("ScriptString::interpolations", ScriptString::interpolations);
+    module.register_fn("ScriptString::set_interpolations", ScriptString::set_interpolations);
+}
+
 
 impl std::fmt::Display for ScriptString {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -38,12 +58,13 @@ impl std::fmt::Display for ScriptString {
         for (i, frag) in
             std::iter::zip(self.interpolations.iter(), script_fragments.iter())
         {
-            s = s + i + frag;
+            let is = i.to_string();
+            s = s + &is + frag;
         }
         write!(
             f,
             "{}",
-            indent_string(s).expect("Couldn't unwrap the indent string")
+            s
         )
     }
 }

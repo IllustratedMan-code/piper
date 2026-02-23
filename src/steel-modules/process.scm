@@ -2,31 +2,46 @@
 (provide process
 	 count-nodes
 	 display-nodes
-	 dag.config
-	 process.display
-	 dag.dag
-	 dag.node_count
+	 DG::config
+	 drv::display
+	 DG::graph
 	 )
 
-(require-builtin process/dag as dag.)
+(require-builtin DerivationGraph as DG::)
 
 (define (process hashmap)
-  (let* ((derivation (dag.process hashmap dag.config))
-	 (out-placeholder dag.out-hash-placeholder))
-    (dag.process.set-interpolations
-     derivation
+  (let* ((script (~> (hash-get hashmap 'script)
+		     (DG::ScriptString)))
+	 (out-hash DG::out-hash-placeholder))
+    (DG::ScriptString::set_interpolations
+     script
      (map
-      (lambda (x) (eval-string (string-append "(let ((out \"" out-placeholder "\"))" x ")")))
-      (dag.process.interpolations derivation)))
-    (dag.add-process dag.dag derivation)))
+      (lambda (x)
+	(eval-string
+	 (string-append "(let ((out \"" out-hash "\"))" x ")")))
+      (DG::ScriptString::interpolations script)
+      ))
+    (set! hashmap (hash-insert hashmap 'script script)) 
+    (~> (DG::Process::new hashmap DG::config)
+	(DG::Process::as_derivation))))
+
+;; (define (process hashmap)
+;;   (let* ((derivation (dag.process hashmap dag.config))
+;; 	 (out-placeholder dag.out-hash-placeholder))
+;;     (dag.process.set-interpolations
+;;      derivation
+;;      (map
+;;       (lambda (x) (eval-string (string-append "(let ((out \"" out-placeholder "\"))" x ")")))
+;;       (dag.process.interpolations derivation)))
+;;     (dag.add-process dag.dag derivation)))
 
 (define (count-nodes)
-  (dag.node_count dag.dag))
+  (DG::node_count DG::graph))
 
-(define process.display dag.process.display)
+(define drv::display DG::Derivation::display)
 
 (define (display-nodes)
-  (dag.display_nodes dag.dag))
+  (DG::display_nodes DG::graph))
 
 
 
