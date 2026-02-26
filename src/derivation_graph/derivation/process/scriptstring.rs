@@ -71,7 +71,7 @@ impl std::fmt::Display for ScriptString {
 
 pub fn indent_string(s: String) -> Result<String, String> {
     let mut strings = s.split("\n").peekable();
-    strings.next(); // consumes first element of iterator (will be needed to add script annotations like 'bash')
+    //strings.next(); // consumes first element of iterator (will be needed to add script annotations like 'bash')
     let whitespace_regex =
         Regex::new(r"^(\s*)").expect("Couldn't make whitespace regex");
     let first_elem = match strings.peek() {

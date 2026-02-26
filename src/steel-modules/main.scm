@@ -1,34 +1,28 @@
 (define x 5)
 
+(define file1 (file "src/main.rs"))
 
-(define proc1 (process
- (hash 'name "first-process"
-       'script "
+(define proc1
+  (process!
+   name : "first-process"
+   container : "ubuntu:latest"
+   script : "
         mkdir -p ${out}
-        echo ${(+ 5 6 2 x)} > ${out}/result.txt"
-       'time 5
-       'memory 5
- 
-       )))
+        echo ${(+ 5 6 2 x)} > ${out}/result.txt
+        cp ${file1} ${out}/script.rs"))
+
+
+(define proc2
+  (process!
+   name : "second-process"
+   time : (hours 5)
+   memory : (GB 5)
+   script : "
+          cat ${proc1}/result.txt > ${out}"
+))
 
 
 
-(define proc2 (process
- (hash 'name "cool-process"
-       'script "
-         cat ${proc1}/result.txt > ${out}"
-       'time 5
-       'memory 5
-)))
-
-
-
-(define proc3 (process
- (hash 'name "third-process"
-       'script "
-        mkdir -p ${out}
-        echo ${(+ 5 7 2 x)} > ${out}/result.txt"
-       'time 5
-       'memory 5
- 
-       )))
+(output
+ ("proc2" proc2)
+ ("proc1" proc1))

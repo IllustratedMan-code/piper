@@ -1,0 +1,21 @@
+use super::{DerivationHash, DisplayTable, Iterator};
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::{ContentArrangement, Table};
+
+
+
+impl Iterator {
+    pub fn display(&self) -> DisplayTable{
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            //.set_width(40)
+            .add_row(vec!["hash".to_string(), format!("{}", self.hash)]);
+
+        DisplayTable{table}
+
+    }
+}

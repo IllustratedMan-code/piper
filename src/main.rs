@@ -42,7 +42,10 @@ fn main() {
         repl.run().expect("couldn't load repl");
         //steel_repl::repl::repl::newrun_repl(engine).expect("Couldn't run repl!");
     } else {
-        let dag = derivation_graph::extract_graph(&mut engine);
-        dag.run();
+        let dag = match derivation_graph::extract_graph(&mut engine){
+            Ok(v) => v,
+            Err(e) => {engine.raise_error(e); return}
+        };
+        dag.run().unwrap_or_else(|e| println!("{}: {}", "Error".red().bold(), e));
     }
 }

@@ -2,25 +2,28 @@ use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{ContentArrangement, Table};
 use process::scriptstring::ScriptString;
-use steel::steel_vm::register_fn::RegisterFn;
+use regex::bytes::Regex;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::{
-    collections::HashMap, hash::DefaultHasher, hash::Hash, hash::Hasher,
+    collections::HashMap, hash::Hash,
 };
+use steel::steel_vm::builtin::BuiltInModule;
+use steel::steel_vm::register_fn::RegisterFn;
 use steel::{
     SteelVal,
     rvals::{Custom, FromSteelVal, IntoSteelVal},
 };
-use steel::steel_vm::builtin::BuiltInModule;
 
 use crate::config::{Config, ParamValue};
 pub mod evaluator;
 use sha2::Digest;
-pub mod process;
+pub mod dataframe;
 pub mod file;
 pub mod output;
-pub mod dataframe;
+pub mod process;
+pub mod iterator;
+pub mod test;
 use steel_derive::Steel;
 
 // Derivation needs to be an enum with possible derivation types
@@ -32,6 +35,8 @@ pub enum Derivation {
     File(File),
     Output(Output),
     Dataframe(Dataframe),
+    Iterator(Iterator),
+    Test(Test)
 }
 
 impl Derivation {
@@ -41,6 +46,8 @@ impl Derivation {
             Derivation::File(v) => v.hash.clone(),
             Derivation::Output(v) => v.hash.clone(),
             Derivation::Dataframe(v) => v.hash.clone(),
+            Derivation::Iterator(v) => v.hash.clone(),
+            Derivation::Test(v) => v.hash.clone()
         }
     }
     pub fn inputs(&self) -> Option<Vec<DerivationHash>> {
@@ -48,7 +55,9 @@ impl Derivation {
             Derivation::Process(v) => Some(v.inward_edges.clone()),
             Derivation::File(_) => None,
             Derivation::Output(v) => Some(v.inward_edges.clone()),
-                Derivation::Dataframe(v) => Some(v.derivations.clone()),
+            Derivation::Dataframe(v) => Some(v.derivations.clone()),
+            Derivation::Iterator(v) => Some(v.inward_edges.clone()),
+            Derivation::Test(v) => Some(v.inward_edges.clone()),
         }
     }
     pub fn outputs(&self) -> Vec<DerivationHash> {
@@ -66,17 +75,19 @@ impl Derivation {
             Derivation::File(v) => v.display(),
             Derivation::Output(v) => v.display(),
             Derivation::Dataframe(v) => v.display(),
+            Derivation::Iterator(v) => v.display(),
+            Derivation::Test(v) => v.display()
         }
     }
 }
 
 
-pub fn register_steel_functions(module: &mut BuiltInModule){
+
+pub fn register_steel_functions(module: &mut BuiltInModule) {
     module.register_type::<Derivation>("Derivation?");
     module.register_fn("Derivation::hash", Derivation::hash);
     module.register_fn("Derivation::display", Derivation::display);
 }
-
 
 impl steel::rvals::Custom for Derivation {
     fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
@@ -84,10 +95,20 @@ impl steel::rvals::Custom for Derivation {
             Derivation::Process(v) => <DerivationHash as Custom>::fmt(&v.hash),
             Derivation::File(v) => <DerivationHash as Custom>::fmt(&v.hash),
             Derivation::Output(v) => <DerivationHash as Custom>::fmt(&v.hash),
-            Derivation::Dataframe(v) => <DerivationHash as Custom>::fmt(&v.hash),
+            Derivation::Dataframe(v) => {
+                <DerivationHash as Custom>::fmt(&v.hash)
+            },
+            Derivation::Iterator(v) => {
+                <DerivationHash as Custom>::fmt(&v.hash)
+            }
+            Derivation::Test(v) => {
+                <DerivationHash as Custom>::fmt(&v.hash)
+            }
         }
     }
 }
+
+
 
 
 #[derive(Debug, Clone, Steel)]
@@ -106,6 +127,18 @@ pub struct Output {
 pub struct Dataframe {
     pub hash: DerivationHash,
     pub derivations: Vec<DerivationHash>,
+}
+
+#[derive(Debug, Clone, Steel)]
+pub struct Iterator {
+    pub hash: DerivationHash,
+    pub inward_edges: Vec<DerivationHash>,
+}
+
+#[derive(Debug, Clone, Steel)]
+pub struct Test {
+    pub hash: DerivationHash,
+    pub inward_edges: Vec<DerivationHash>,
 }
 
 /// Process Derivation
@@ -154,3 +187,5 @@ impl std::fmt::Display for DisplayTable {
         write!(f, "\n{}", self.table)
     }
 }
+
+

@@ -71,7 +71,6 @@ functions in their "self" spot
 
  #+end_src
 
-
 * Derivation iterators
 
 Something equivalent to nextflow's channels. For example, if a process
@@ -105,6 +104,19 @@ script were to randomly generate a set of nodes each time, then this
 breaks the pipeline's assumptions as the hash is not technically based
 on the visible inputs.
 
+I think a derivation iterator can also be a derivation, it just gets
+treated differently at runtime. It gets a bit tricky when there are 2
+derivation iterators being interpolated in the same process, but I can
+find a way to deal with it.
 
+
+* String interpolations
+Looks like it is difficult and currently impossible to do string
+interpolations with automatic scoping rules, see
+https://github.com/mattwparas/steel/issues/629.
+
+It might be possible to macro-ify it in the future, but for now, I'll
+just have to manually insert the scoped variables into the let for
+=eval-string=.
 
 

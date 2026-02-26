@@ -134,7 +134,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -145,7 +145,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -601,7 +601,7 @@ version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1184,7 +1184,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2284,7 +2284,7 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "quick-xml",
- "rand",
+ "rand 0.9.2",
  "reqwest",
  "ring",
  "serde",
@@ -2316,6 +2316,17 @@ name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
+
+[[package]]
+name = "ordered-float"
+version = "5.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f4779c6901a562440c3786d08192c6fbda7c1c2060edd10006b05ee35d10f2d"
+dependencies = [
+ "num-traits",
+ "rand 0.8.5",
+ "serde",
+]
 
 [[package]]
 name = "parking"
@@ -2529,7 +2540,7 @@ dependencies = [
  "polars-buffer",
  "polars-error",
  "polars-utils",
- "rand",
+ "rand 0.9.2",
  "serde",
  "strength_reduce",
  "strum_macros",
@@ -2563,7 +2574,7 @@ dependencies = [
  "polars-row",
  "polars-schema",
  "polars-utils",
- "rand",
+ "rand 0.9.2",
  "rand_distr",
  "rayon",
  "regex",
@@ -2623,7 +2634,7 @@ dependencies = [
  "polars-row",
  "polars-time",
  "polars-utils",
- "rand",
+ "rand 0.9.2",
  "rayon",
  "recursive",
  "regex",
@@ -2909,7 +2920,7 @@ dependencies = [
  "polars-plan",
  "polars-time",
  "polars-utils",
- "rand",
+ "rand 0.9.2",
  "rayon",
  "recursive",
  "slotmap",
@@ -2962,7 +2973,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "polars-error",
- "rand",
+ "rand 0.9.2",
  "raw-cpuid",
  "rayon",
  "regex",
@@ -3079,7 +3090,7 @@ dependencies = [
  "bytes",
  "getrandom 0.3.4",
  "lru-slab",
- "rand",
+ "rand 0.9.2",
  "ring",
  "rustc-hash",
  "rustls",
@@ -3102,7 +3113,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3132,6 +3143,16 @@ dependencies = [
 
 [[package]]
 name = "rand"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+dependencies = [
+ "rand_core 0.6.4",
+ "serde",
+]
+
+[[package]]
+name = "rand"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6db2770f06117d490610c7488547d543617b21bfa07796d7a12f6f1bd53850d1"
@@ -3155,6 +3176,9 @@ name = "rand_core"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "rand_core"
@@ -3172,7 +3196,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8615d50dcf34fa31f7ab52692afec947c4dd0ab803cc87cb3b0b4570ff7463"
 dependencies = [
  "num-traits",
- "rand",
+ "rand 0.9.2",
 ]
 
 [[package]]
@@ -3415,7 +3439,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3814,8 +3838,8 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "steel-core"
-version = "0.7.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.8.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
  "abi_stable",
  "arc-swap",
@@ -3854,7 +3878,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "polling",
- "rand",
+ "rand 0.9.2",
  "rustc-hash",
  "serde",
  "serde_json",
@@ -3869,6 +3893,7 @@ dependencies = [
  "steel-rc",
  "strsim",
  "termimad",
+ "thin-vec",
  "weak-table",
  "which",
  "xdg",
@@ -3876,8 +3901,8 @@ dependencies = [
 
 [[package]]
 name = "steel-derive"
-version = "0.6.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.8.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3886,8 +3911,8 @@ dependencies = [
 
 [[package]]
 name = "steel-gen"
-version = "0.3.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.8.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
  "codegen",
  "serde",
@@ -3910,26 +3935,29 @@ dependencies = [
 
 [[package]]
 name = "steel-parser"
-version = "0.7.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.8.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
  "compact_str 0.8.1",
+ "dashmap",
  "lasso",
  "log",
  "num-bigint",
  "num-rational",
  "num-traits",
  "once_cell",
+ "ordered-float",
  "pretty",
  "rustc-hash",
  "serde",
  "smallvec",
+ "thin-vec",
 ]
 
 [[package]]
 name = "steel-quickscope"
-version = "0.2.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.3.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
  "indexmap 2.13.0",
  "smallvec",
@@ -3937,17 +3965,18 @@ dependencies = [
 
 [[package]]
 name = "steel-rc"
-version = "0.7.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.8.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
+ "dashmap",
  "parking_lot",
  "rustc-hash",
 ]
 
 [[package]]
 name = "steel-repl"
-version = "0.7.0"
-source = "git+https://github.com/mattwparas/steel.git?branch=master#e52ec8f6b0efb5d09c9113dde106f7a359d9cc59"
+version = "0.8.2"
+source = "git+https://github.com/mattwparas/steel.git?branch=master#b248754e1f8e67c1be0002abca161f7f22c71fe4"
 dependencies = [
  "colored",
  "crossbeam-utils",
@@ -4080,6 +4109,15 @@ dependencies = [
  "serde",
  "thiserror",
  "unicode-width 0.1.14",
+]
+
+[[package]]
+name = "thin-vec"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "144f754d318415ac792f9d69fc87abbbfc043ce2ef041c60f16ad828f638717d"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -4581,7 +4619,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
