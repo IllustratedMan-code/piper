@@ -39,6 +39,8 @@ pub enum Derivation {
     Test(Test)
 }
 
+
+
 impl Derivation {
     pub fn hash(&self) -> DerivationHash {
         match self {
@@ -127,6 +129,7 @@ pub struct Output {
 pub struct Dataframe {
     pub hash: DerivationHash,
     pub derivations: Vec<DerivationHash>,
+    pub frame: polars::prelude::DataFrame
 }
 
 #[derive(Debug, Clone, Steel)]

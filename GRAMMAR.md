@@ -30,16 +30,15 @@ outputs derivation.
 
 (define (MyProcess message)
 	(process
-		name: "chairs"
-		container: "user/repo:tag"
-		memory: "1Gb")
-		time: "1h"
-		shell: "python"
-		script "
+		name : "chairs"
+		container : "user/repo:tag"
+		memory : "1Gb")
+		time : "1h"
+		script ''python
 			mkdir ${out}
 			cp ${mypath}/mypath.txt ${out}/mypath.txt
 			echo "chairs" > ${out}/chairs.txt
-		"))
+		''))
 
 (define myiter (process_iter mypath) "*.txt")
 
