@@ -23,28 +23,32 @@ outputs derivation.
 		(script ''bash
 			mkdir ${out}
 			echo "hi" > ${out}/mypath.txt
-			python ${myfile} > ${out}/pyout.txt
+			python ${myfile2} > ${out}/pyout.txt
 		''
 		)))
 
 
-
-(define (MyProcess t)
+(define (MyProcess message)
 	(process
-		(name "chairs")
-		(container "user/repo:tag")
-		(memory "1Gb")
-		(time t)
-		(shell "bash")
-		(script ''
+		name : "chairs"
+		container : "user/repo:tag"
+		memory : "1Gb")
+		time : "1h"
+		script ''python
 			mkdir ${out}
 			cp ${mypath}/mypath.txt ${out}/mypath.txt
 			echo "chairs" > ${out}/chairs.txt
-		'')))
+		''))
 
+(define myiter (process_iter mypath) "*.txt")
+
+
+(define next_iter (map myiter my_function))
+
+(define final_derivation (to_derivation next_iter))
 
 (outputs
-  ("my/path" (MyProcess "1h")) ;; copies $out of MyProcess to my/path
+  ("my/path" final_derivation) ;; copies $out of MyProcess to my/path
 )
 
 ```

@@ -1,13 +1,16 @@
-use crate::process::derivation::evaluator::HPCRuntimeFunctions;
-use crate::process::{ProcessGraph, derivation::Derivation};
+use crate::derivation_graph::derivation::evaluator::HPCRuntimeFunctions;
+use crate::derivation_graph::{
+    DerivationGraph, derivation::Derivation, derivation::DerivationHash,
+    derivation::Process,
+};
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
-impl ProcessGraph {
+impl DerivationGraph {
     /// runs arbitrary derivation based on its hash
     pub fn run_derivation(
         &self,
-        derivation_hash: String,
+        derivation_hash: DerivationHash,
     ) -> Result<(), String> {
         let mut run_order = VecDeque::<Vec<Derivation>>::new();
         let mut stop = false;
@@ -22,7 +25,7 @@ impl ProcessGraph {
                 "no first element of run_order, this should never happen",
             );
             for i in last_iter {
-                if let Some(edges) = i.clone().inward_edges {
+                if let Some(edges) = i.clone().inputs() {
                     let mut derivations: Vec<Derivation> =
                         edges.iter().map(|edges| {
                             self.nodes.get(edges).expect("inward edges are not in process graph, this should never happen").clone()
@@ -40,6 +43,16 @@ impl ProcessGraph {
 
         let mut i = 0;
         for iteration in run_order {
+            let iteration: Vec<&Process> = iteration
+                .iter()
+                .filter_map(|x| match x {
+                    Derivation::Process(v) => Some(v),
+                    _ => None,
+                })
+                .collect();
+            if iteration.is_empty(){
+                continue;
+            }
             i += 1;
             println!(
                 "run iteration: {}, {:?}",
@@ -47,10 +60,12 @@ impl ProcessGraph {
                 iteration
                     .iter()
                     .map(|v| v.hash.clone())
-                    .collect::<Vec<Option<String>>>()
+                    .collect::<Vec<DerivationHash>>()
             );
             let handles: Vec<
-                Option<crate::process::derivation::evaluator::HPCRuntime>,
+                Option<
+                    crate::derivation_graph::derivation::evaluator::HPCRuntime,
+                >,
             > = iteration
                 .iter()
                 .map(|derivation| derivation.run())
@@ -65,7 +80,10 @@ impl ProcessGraph {
     }
 
     /// runs outputs derivation
-    fn run(&self) -> Result<(), String> {
+    pub fn run(&self) -> Result<(), String> {
+        self.run_derivation(
+            self.outputs.clone().ok_or_else(|| "No outputs node!")?.hash(),
+        );
         // need to replace with custom error type for derivations
 
         todo!()
