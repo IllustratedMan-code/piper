@@ -6,7 +6,12 @@ use polars::prelude::*;
 use polars_utils::aliases::PlSeedableRandomStateQuality;
 use polars_utils::total_ord::TotalHash;
 use sha2::Digest;
+use steel::steel_vm::builtin::BuiltInModule;
 use steel::SteelVal;
+use steel::SteelErr;
+use steel::steel_vm::register_fn::RegisterFn;
+
+
 
 impl Dataframe {
     pub fn display(&self) -> DisplayTable {
@@ -19,6 +24,24 @@ impl Dataframe {
             .add_row(vec!["hash".to_string(), format!("{}", self.hash)]);
 
         DisplayTable { table }
+    }
+
+    pub fn read_csv(path: String) -> Result<Self, String> {
+        let frame = CsvReadOptions::default()
+            .with_has_header(true)
+            .try_into_reader_with_file_path(Some(std::path::PathBuf::from(path)))
+            .map_err(|x| x.to_string())?
+            .finish()
+            .map_err(|x| x.to_string())?;
+        Self {
+            frame,
+            hash: DerivationHash::default(),
+            derivations: vec![],
+        }.hash()
+    }
+
+    pub fn into_derivation(self) -> super::Derivation{
+        super::Derivation::Dataframe(self)
     }
 
     pub fn hash(mut self) -> Result<Dataframe, String> {
@@ -42,10 +65,45 @@ impl Dataframe {
         name: String,
         values: Vec<SteelVal>,
     ) -> Result<Dataframe, String> {
-        let column
-        self.frame.with_column();
+        let first = std::mem::discriminant(&values[0]);
+        let all_same_type =
+            values.iter().all(|x| first == std::mem::discriminant(x));
+
+        if !all_same_type {
+            return Err(
+                "All elements in column must be the same type!".to_string()
+            );
+        }
+
+        let column = match values[0] {
+            SteelVal::BoolV(_) => {
+                let vals: Vec<bool> = values
+                    .into_iter()
+                    .map(|v| {
+                        if let SteelVal::BoolV(b) = v {
+                            b
+                        } else {
+                            unreachable!("Already checked all same type")
+                        }
+                    })
+                    .collect();
+                Column::from(Series::new(name.into(), vals))
+            }
+            _ => return Err("Unsupported data type for Dataframe".to_string()),
+        };
+
+        self.frame.with_column(column).map_err(|x| x.to_string())?;
+        self.hash()
     }
 }
+
+
+pub fn register_steel_functions(module: &mut BuiltInModule) {
+    module.register_fn("read-csv", Dataframe::read_csv);
+    module.register_fn("with-column", Dataframe::with_column);
+    module.register_fn("Dataframe::into_derivation", Dataframe::into_derivation);
+}
+
 
 // looks like polars will work with custom types
 fn test_polars() {

@@ -8,6 +8,9 @@
 	 DG::config
 	 drv::display
 	 DG::graph
+	 DG::read-csv
+	 DG::with-column
+	 DG::Dataframe::into_derivation
 	 )
 
 (require-builtin DerivationGraph as DG::)

@@ -2,6 +2,8 @@ use super::derivation_graph::DerivationGraph;
 use steel::steel_vm::engine::Engine;
 use super::config::Config;
 use crate::bindings;
+mod tester_functions;
+mod convenience_functions;
 
 pub fn engine(config_path: Option<std::path::PathBuf>) -> Engine {
     let mut vm = Engine::new();
@@ -9,8 +11,11 @@ pub fn engine(config_path: Option<std::path::PathBuf>) -> Engine {
     let  c = Config::new(config_path);
     c.register_params(&mut vm);
     DerivationGraph::init(&mut vm, c);
+    convenience_functions::register_steel_functions(&mut vm);
+    tester_functions::register_steel_functions(&mut vm);
     vm
 }
+
 
 macro_rules! test_scm_file {
     ($file:expr) => {{
