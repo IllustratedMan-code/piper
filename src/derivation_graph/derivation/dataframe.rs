@@ -11,6 +11,12 @@ use steel::SteelVal;
 use steel::SteelErr;
 use steel::steel_vm::register_fn::RegisterFn;
 
+<<<<<<< Updated upstream
+=======
+use steel::{
+    rvals::{Custom, FromSteelVal, IntoSteelVal},
+};
+>>>>>>> Stashed changes
 
 
 impl Dataframe {
@@ -102,6 +108,10 @@ pub fn register_steel_functions(module: &mut BuiltInModule) {
     module.register_fn("read-csv", Dataframe::read_csv);
     module.register_fn("with-column", Dataframe::with_column);
     module.register_fn("Dataframe::into_derivation", Dataframe::into_derivation);
+<<<<<<< Updated upstream
+=======
+    module.register_fn("df::display", Dataframe::display);
+>>>>>>> Stashed changes
 }
 
 
@@ -170,3 +180,15 @@ impl PolarsObject for DerivationHash {
         "DerivationHash"
     }
 }
+<<<<<<< Updated upstream
+=======
+
+impl Custom for Dataframe {
+    fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
+        Some(Ok(format!(
+            "{}",
+            self.frame
+        )))
+    }
+}
+>>>>>>> Stashed changes
