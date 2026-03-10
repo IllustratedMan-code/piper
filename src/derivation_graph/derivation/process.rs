@@ -182,10 +182,6 @@ impl Process {
         DisplayTable { table }
     }
 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
     // TODO need to rewrite this to have its own method
     pub fn run(&self) -> Option<evaluator::HPCRuntime> {
             evaluator::run_derivation(self)

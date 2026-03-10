@@ -15,16 +15,6 @@
 ;;   )
 ;; )
 
-;; (define metadata
-;;   (df::map-column metadata 'price file!))
-
-;; This syntax-case macro will parse anything in the "select" statement as a string
-;; I can parse this string in rust using a "mini" language for select statements
-(define-syntax subset
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ cond ...)
-       (symbol->string (syntax->datum #'(cond ...))))))
 
 
 (define proc1

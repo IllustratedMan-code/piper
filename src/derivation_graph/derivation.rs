@@ -125,7 +125,7 @@ pub struct Output {
     pub inward_edges: Vec<DerivationHash>,
 }
 
-#[derive(Debug, Clone, Steel)]
+#[derive(Debug, Clone)]
 pub struct Dataframe {
     pub hash: DerivationHash,
     pub derivations: Vec<DerivationHash>,

@@ -6,18 +6,13 @@ use polars::prelude::*;
 use polars_utils::aliases::PlSeedableRandomStateQuality;
 use polars_utils::total_ord::TotalHash;
 use sha2::Digest;
-use steel::steel_vm::builtin::BuiltInModule;
-use steel::SteelVal;
 use steel::SteelErr;
+use steel::SteelVal;
+use steel::steel_vm::builtin::BuiltInModule;
 use steel::steel_vm::register_fn::RegisterFn;
+use steel_derive::Steel;
 
-<<<<<<< Updated upstream
-=======
-use steel::{
-    rvals::{Custom, FromSteelVal, IntoSteelVal},
-};
->>>>>>> Stashed changes
-
+use steel::rvals::{Custom, FromSteelVal, IntoSteelVal};
 
 impl Dataframe {
     pub fn display(&self) -> DisplayTable {
@@ -35,7 +30,9 @@ impl Dataframe {
     pub fn read_csv(path: String) -> Result<Self, String> {
         let frame = CsvReadOptions::default()
             .with_has_header(true)
-            .try_into_reader_with_file_path(Some(std::path::PathBuf::from(path)))
+            .try_into_reader_with_file_path(Some(std::path::PathBuf::from(
+                path,
+            )))
             .map_err(|x| x.to_string())?
             .finish()
             .map_err(|x| x.to_string())?;
@@ -43,10 +40,11 @@ impl Dataframe {
             frame,
             hash: DerivationHash::default(),
             derivations: vec![],
-        }.hash()
+        }
+        .hash()
     }
 
-    pub fn into_derivation(self) -> super::Derivation{
+    pub fn into_derivation(self) -> super::Derivation {
         super::Derivation::Dataframe(self)
     }
 
@@ -101,19 +99,330 @@ impl Dataframe {
         self.frame.with_column(column).map_err(|x| x.to_string())?;
         self.hash()
     }
-}
 
+    pub fn select(mut self, columns: Vec<String>) -> Result<Self, String> {
+        self.frame = self.frame.select(columns).map_err(|x| x.to_string())?;
+        Ok(self)
+    }
+
+    pub fn subset(
+        mut self,
+        expression: String,
+    ) -> Result<Dataframe, SteelErr> {
+        let lexes = subset_lexer(expression);
+        println!("{:?}", lexes);
+        let parsed = SubsetParser::new(lexes.clone()?).parse();
+        let expr = subset_exec(&self, parsed?);
+        let lazy_df = self.frame.lazy();
+        println!("polars expr: {:?}", expr.clone()?);
+        self.frame = lazy_df.filter(expr?).collect().map_err(|x| {
+            SteelErr::new(steel::rerrs::ErrorKind::Generic, x.to_string())
+        })?;
+        Ok(self)
+    }
+}
 
 pub fn register_steel_functions(module: &mut BuiltInModule) {
     module.register_fn("read-csv", Dataframe::read_csv);
     module.register_fn("with-column", Dataframe::with_column);
-    module.register_fn("Dataframe::into_derivation", Dataframe::into_derivation);
-<<<<<<< Updated upstream
-=======
+    module
+        .register_fn("Dataframe::into_derivation", Dataframe::into_derivation);
     module.register_fn("df::display", Dataframe::display);
->>>>>>> Stashed changes
+    module.register_fn("df::select", Dataframe::select);
+    module.register_fn("df::subset", Dataframe::subset);
 }
 
+#[derive(Debug, Clone)]
+enum SubsetToken {
+    String(String),
+    Column(String),
+    Number(f64),
+    Gt,
+    Lt,
+    GtEq,
+    LtEq,
+    Eq,
+    And,
+    Or,
+    LParen,
+    RParen,
+}
+
+fn subset_lexer(input: String) -> Result<Vec<SubsetToken>, SteelErr> {
+    let mut tokens = Vec::new();
+    let mut chars = input.chars().peekable();
+
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            c if c.is_whitespace() => {
+                chars.next();
+            }
+            '&' => {
+                tokens.push(SubsetToken::And);
+                chars.next();
+            }
+            '|' => {
+                tokens.push(SubsetToken::Or);
+                chars.next();
+            }
+            '(' => {
+                tokens.push(SubsetToken::LParen);
+                chars.next();
+            }
+            ')' => {
+                tokens.push(SubsetToken::RParen);
+                chars.next();
+            }
+            '<' => {
+                chars.next();
+                if let Some(c) = chars.peek() {
+                    if let '=' = c {
+                        tokens.push(SubsetToken::LtEq);
+                        chars.next();
+                    } else {
+                        tokens.push(SubsetToken::Lt)
+                    }
+                } else {
+                    return Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::BadSyntax,
+                        "Nothing follows comparison operator <".to_string(),
+                    ));
+                }
+            }
+            '>' => {
+                chars.next();
+                if let Some(c) = chars.peek() {
+                    if let '=' = c {
+                        tokens.push(SubsetToken::GtEq);
+                        chars.next();
+                    } else {
+                        tokens.push(SubsetToken::Gt)
+                    }
+                } else {
+                    return Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::BadSyntax,
+                        "Nothing follows comparison operator >".to_string(),
+                    ));
+                }
+            }
+            '=' => {
+                chars.next();
+                if let Some('=') = chars.peek(){
+                        tokens.push(SubsetToken::Eq);
+                        chars.next();
+                } else {
+                    return Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::BadSyntax,
+                        "Found '=' did you mean '==' ?".to_string(),
+                    ));
+
+                }
+            }
+            '\"' => {
+                let mut token = "".to_string();
+                let mut closed = false;
+                chars.next();
+                while let Some(&c) = chars.peek() {
+                    chars.next();
+                    if c == '\"' {
+                        closed = true;
+                        break;
+                    }
+                    token.push(c);
+                }
+                if !closed {
+                    return Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::BadSyntax,
+                        "String has an unclosed \"".to_string(),
+                    ));
+                }
+                tokens.push(SubsetToken::String(token));
+            }
+            '\'' => {
+                let mut token = "".to_string();
+                let mut closed = false;
+                chars.next();
+                while let Some(&c) = chars.peek() {
+                    chars.next();
+                    if c == '\'' {
+                        closed = true;
+                        break;
+                    }
+                    token.push(c);
+                }
+                if !closed {
+                    return Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::BadSyntax,
+                        "Column has an unclosed \'".to_string(),
+                    ));
+                }
+                tokens.push(SubsetToken::Column(token));
+            }
+
+            c if c.is_alphanumeric() | (c == '_') | (c == '-') => {
+                let mut token = "".to_string();
+                while let Some(&c) = chars.peek() {
+                    if !(c.is_alphanumeric() | (c == '_') | (c == '-')) {
+                        break;
+                    }
+                    chars.next();
+                    token.push(c);
+                }
+                if let Ok(v) = token.parse::<f64>() {
+                    tokens.push(SubsetToken::Number(v));
+                } else {
+                    tokens.push(SubsetToken::Column(token));
+                }
+            }
+
+            _ => {
+                return Err(SteelErr::new(
+                    steel::rerrs::ErrorKind::UnexpectedToken,
+                    "Unexpected Token in subset".to_string(),
+                ));
+            }
+        }
+    }
+
+    Ok(tokens)
+}
+
+#[derive(Debug, Clone)]
+enum SubsetExpr {
+    Value(SubsetToken),
+    Column(SubsetToken),
+    Op(Box<SubsetExpr>, SubsetToken, Box<SubsetExpr>),
+}
+
+struct SubsetParser {
+    tokens: Vec<SubsetToken>,
+    pos: usize,
+}
+
+impl SubsetParser {
+    fn new(tokens: Vec<SubsetToken>) -> Self {
+        SubsetParser { tokens, pos: 0 }
+    }
+    fn next(&mut self) -> Option<&SubsetToken> {
+        self.pos += 1;
+        self.tokens.get(self.pos - 1)
+    }
+    fn peek(&self) -> Option<SubsetToken> {
+        self.tokens.get(self.pos).cloned() // cloned clones the inside of an option
+    }
+    fn parse_expr(&mut self) -> Result<SubsetExpr, SteelErr> {
+        let mut left = self.parse();
+        loop {
+            println!("left: {:?}", left.clone()?);
+            let op = match self.peek() {
+                Some(SubsetToken::Gt)
+                | Some(SubsetToken::Lt)
+                | Some(SubsetToken::GtEq)
+                | Some(SubsetToken::LtEq)
+                | Some(SubsetToken::Eq)
+                | Some(SubsetToken::And)
+                | Some(SubsetToken::Or) => self.peek(),
+                Some(SubsetToken::RParen) => None,
+                Some(t) => {
+                    return Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::UnexpectedToken,
+                        format!("unexpected {:?}", t),
+                    ));
+                }
+                _ => None,
+            };
+            if op.is_none() {
+                break;
+            }
+            if let Some(o) = op {
+                self.next(); // eat op
+
+                let right = self.parse()?;
+                left = Ok(SubsetExpr::Op(
+                    Box::new(left?),
+                    o.clone(),
+                    Box::new(right),
+                ))
+            }
+        }
+
+        left
+    }
+    fn parse(&mut self) -> Result<SubsetExpr, SteelErr> {
+        // if (, eat, then ), the parse again
+        let expr: Result<SubsetExpr, SteelErr>;
+        if let Some(t) = self.peek() {
+            match t {
+                SubsetToken::LParen => {
+                    self.next(); // eat '('
+                    println!("peek after lparen: {:?}", self.peek());
+                    let e = self.parse_expr();
+                    println!("peek after expr: {:?}", self.peek());
+                    self.next();
+                    println!("peek after eat: {:?}", self.peek());
+                    expr = e;
+                }
+                SubsetToken::Column(_) => {
+                    expr = Ok(SubsetExpr::Column(t.clone()));
+                    self.next();
+                }
+                SubsetToken::String(_) | SubsetToken::Number(_) => {
+                    expr = Ok(SubsetExpr::Value(t.clone()));
+                    self.next();
+                }
+                t => {
+                    expr = Err(SteelErr::new(
+                        steel::rerrs::ErrorKind::UnexpectedToken,
+                        format!("Unexpected: {:?}", t),
+                    ));
+                }
+            }
+        } else {
+            expr = Err(SteelErr::new(
+                steel::rerrs::ErrorKind::BadSyntax,
+                "nothing to parse!".to_string(),
+            ))
+        }
+
+        expr
+    }
+}
+
+fn subset_exec(df: &Dataframe, ast: SubsetExpr) -> Result<Expr, SteelErr> {
+    println!("ast: {:?}", ast);
+    match ast {
+        SubsetExpr::Value(v) => match v {
+            SubsetToken::Number(n) => Ok(lit(n)),
+            SubsetToken::String(s) => Ok(lit(s)),
+            _ => Err(SteelErr::new(
+                steel::rerrs::ErrorKind::UnexpectedToken,
+                format!("Unexpected: {:?}", v),
+            )),
+        },
+        SubsetExpr::Column(c) => match c {
+            SubsetToken::Column(c) => Ok(Expr::Column(c.into())),
+            _ => Err(SteelErr::new(
+                steel::rerrs::ErrorKind::UnexpectedToken,
+                format!("Unexpected: {:?}", c),
+            )),
+        },
+        SubsetExpr::Op(x, op, y) => {
+            let left = subset_exec(df, *x)?;
+            let right = subset_exec(df, *y)?;
+            match op {
+                SubsetToken::Gt => Ok(left.gt(right)),
+                SubsetToken::GtEq => Ok(left.gt_eq(right)),
+                SubsetToken::Lt => Ok(left.lt(right)),
+                SubsetToken::LtEq => Ok(left.lt_eq(right)),
+                SubsetToken::Eq => Ok(left.eq(right)),
+                _ => Err(SteelErr::new(
+                    steel::rerrs::ErrorKind::UnexpectedToken,
+                    format!("Unexpected: {:?}", op),
+                )),
+            }
+        }
+    }
+}
 
 // looks like polars will work with custom types
 fn test_polars() {
@@ -180,15 +489,29 @@ impl PolarsObject for DerivationHash {
         "DerivationHash"
     }
 }
-<<<<<<< Updated upstream
-=======
 
 impl Custom for Dataframe {
     fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
-        Some(Ok(format!(
-            "{}",
-            self.frame
-        )))
+        Some(Ok(format!("{}", self.frame)))
     }
 }
->>>>>>> Stashed changes
+impl Custom for SubsetToken {
+    fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
+        Some(Ok(format!("{:?}", self)))
+    }
+}
+
+impl Custom for SubsetExpr {
+    fn fmt(&self) -> Option<std::result::Result<String, std::fmt::Error>> {
+        let mut s: String = "".into();
+        match self.clone() {
+            SubsetExpr::Value(v) => s = format!("(Value {:?})", v),
+            SubsetExpr::Column(v) => s = format!("(Column {:?})", v),
+            SubsetExpr::Op(x, op, y) => {
+                s = format!("Op({:?}, {:?}, {:?})", x, op, y)
+            }
+        }
+
+        Some(Ok(s))
+    }
+}

@@ -8,12 +8,20 @@
 	 DG::config
 	 drv::display
 	 DG::graph
-	 DG::read-csv
+	 read-csv
+	 select
+	 subset
 	 DG::with-column
 	 DG::Dataframe::into_derivation
 	 )
 
+
 (require-builtin DerivationGraph as DG::)
+
+(define read-csv DG::read-csv)
+
+(define select DG::df::select)
+(define subset DG::df::subset)
 
 (define (process hashmap #:bindings [bindings '()])
   (let* ((script (~> (hash-get hashmap 'script)
@@ -38,6 +46,21 @@
     derivation
     ))
 
+(define-syntax subset!
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ df)
+       (error "Did you forget to add a subset expression?"))
+      ((_ df string)
+       (begin
+	 (if
+	  (string? (syntax->datum #'string))
+	  #'(subset df (string-append "(" string ")"))
+	  (symbol->string (syntax->datum #'(string))))
+	  ))
+      ((_ df cond ...)
+       (symbol->string (syntax->datum #'(cond ...))))
+      )))
 
 (define-syntax process!
   (syntax-rules ()
